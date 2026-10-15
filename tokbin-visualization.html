@@ -1,0 +1,1001 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TokBin Visualization — TokBinR (root) + TokBinV (non-root)</title>
+<style>
+  :root{
+    --bg:#f6f8fb; --panel:#ffffff; --line:#e2e8f0; --ink:#0f172a; --muted:#64748b;
+    --rk0:#2563eb; --rk1:#16a34a; --rk2:#ea580c; --bot:#6b7280; --err:#dc2626;
+    --acc:#16a34a; --join:#2563eb; --anom:#dc2626; --ign:#94a3b8;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%}
+  body{
+    font-family:"Segoe UI","Noto Sans TC",system-ui,-apple-system,sans-serif;
+    background:var(--bg); color:var(--ink); font-size:14px;
+  }
+  header{
+    padding:12px 18px; background:#0f172a; color:#fff;
+    display:flex; align-items:baseline; gap:14px; flex-wrap:wrap;
+  }
+  header h1{font-size:17px;margin:0;font-weight:600}
+  header .sub{font-size:12px;color:#cbd5e1}
+  main{
+    display:grid; grid-template-columns:270px minmax(420px,1fr) 360px;
+    gap:12px; padding:12px; height:calc(100% - 52px); overflow:hidden;
+  }
+  @media (max-width:1200px){ main{grid-template-columns:1fr; height:auto; overflow:auto} }
+  .card{
+    background:var(--panel); border:1px solid var(--line); border-radius:10px;
+    padding:12px; box-shadow:0 1px 2px rgba(15,23,42,.04);
+    display:flex; flex-direction:column; min-height:0;
+  }
+  .card h2{font-size:13px;margin:0 0 8px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+  label.row{display:flex;justify-content:space-between;align-items:center;gap:8px;margin:7px 0;font-size:13px}
+  select,input[type=range]{width:100%}
+  select{padding:4px 6px;border:1px solid var(--line);border-radius:6px;background:#fff;font-size:13px}
+  .btns{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px}
+  button{
+    flex:1 1 auto; padding:7px 10px; border:1px solid var(--line); border-radius:7px;
+    background:#fff; cursor:pointer; font-size:13px; font-weight:500; color:var(--ink);
+  }
+  button:hover{background:#f1f5f9}
+  button.primary{background:#0f172a;color:#fff;border-color:#0f172a}
+  button.primary:hover{background:#1e293b}
+  /* The four controls share one row: icon on top, label below. */
+  .ctrl-row{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:6px}
+  .ctrl-row button{
+    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;
+    padding:7px 2px;font-size:11px;font-weight:600;flex:none;
+  }
+  .ctrl-row button .ic{font-size:15px;line-height:1}
+  .chk{display:flex;align-items:center;gap:7px;margin:5px 0;font-size:12.5px;color:#334155}
+  .chk input{accent-color:#0f172a}
+  .sep{height:1px;background:var(--line);margin:10px 0}
+  .stat{font-size:12.5px;color:var(--muted);display:flex;justify-content:space-between}
+  .stat b{color:var(--ink)}
+  #stagewrap{position:relative}
+  svg#graph{width:100%;height:100%;background:#fbfdff;border-radius:8px}
+  .edge{stroke:#cbd5e1;stroke-width:1.6}
+  .edge.sib{stroke:#e2e8f0;stroke-dasharray:4 4}
+  .edge.parent{stroke:#0d9488;stroke-width:3.2}
+  .node{stroke-width:2}
+  .node.rk0{fill:#dbeafe;stroke:var(--rk0)}
+  .node.rk1{fill:#dcfce7;stroke:var(--rk1)}
+  .node.rk2{fill:#ffedd5;stroke:var(--rk2)}
+  .node.rkbot{fill:#e5e7eb;stroke:var(--bot);stroke-dasharray:4 3}
+  .node.err{fill:#fee2e2;stroke:var(--err);stroke-width:3.4}
+  .node.root{stroke:#b45309;stroke-width:3.4}
+  .node-id{font-size:12.5px;font-weight:700;text-anchor:middle;fill:#0f172a;pointer-events:none}
+  .info-box{fill:#ffffff;stroke:#e2e8f0;stroke-width:1}
+  .node-info{font-size:11px;text-anchor:middle;fill:#334155;pointer-events:none;font-family:ui-monospace,Consolas,monospace}
+  .tag{font-size:8.5px;font-weight:800;letter-spacing:.05em;pointer-events:none;font-family:"Segoe UI",system-ui,sans-serif}
+  .tag-err{fill:#dc2626}
+  .tag-reset{fill:#6b7280}
+  .tag-bg-err{fill:#fee2e2;stroke:#dc2626;stroke-width:.8}
+  .tag-bg-reset{fill:#f3f4f6;stroke:#9ca3af;stroke-width:.8}
+  .tok-badge{fill:#facc15;stroke:#a16207;stroke-width:1.4}
+  .done-box{fill:#f1f5f9;stroke:#94a3b8;stroke-width:1.6}
+  .done-title{font-size:15px;font-weight:800;fill:#475569;font-family:"Segoe UI",system-ui,sans-serif}
+  .done-sub{font-size:11px;fill:#64748b;font-family:"Segoe UI",system-ui,sans-serif}
+  .done-box.done{fill:#dcfce7;stroke:#16a34a}
+  .done-title.done{fill:#15803d}
+  .done-sub.done{fill:#166534}
+  .msg-label{font-size:9.5px;fill:#334155;font-family:ui-monospace,Consolas,monospace}
+  .legend{display:flex;flex-wrap:wrap;gap:8px 14px;font-size:11.5px;color:#475569;margin-top:6px}
+  .legend i{display:inline-block;width:11px;height:11px;border-radius:3px;margin-right:4px;vertical-align:-1px}
+  /* Legend floats over the top-right corner of the graph so it can never be clipped. */
+  #stage-legend{
+    position:absolute;top:40px;right:18px;z-index:2;
+    display:flex;flex-direction:column;gap:4px;
+    padding:8px 10px;font-size:11px;color:#475569;
+    background:rgba(255,255,255,.92);border:1px solid var(--line);border-radius:8px;
+    box-shadow:0 1px 3px rgba(15,23,42,.08);pointer-events:none;
+  }
+  #stage-legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px;vertical-align:-1px}
+  .tblwrap{overflow:auto;flex:1;min-height:120px;border-top:1px solid var(--line)}
+  table{border-collapse:collapse;width:100%;font-size:12px;font-family:ui-monospace,Consolas,monospace}
+  th,td{padding:3px 6px;text-align:center;border-bottom:1px solid #f1f5f9}
+  th{position:sticky;top:0;background:#f8fafc;color:var(--muted);font-weight:600;font-size:11px}
+  tr.fired{background:#fffbeb}
+  tr.reset td{color:#94a3b8}
+  td.chg{background:#fef08a;font-weight:700;border-radius:3px}
+  #log{overflow:auto;flex:1;min-height:160px;font-size:12px;line-height:1.45}
+  .log-step{border-bottom:1px solid #f1f5f9;padding:5px 0}
+  .log-head{font-weight:700;color:#0f172a;font-size:12px;margin-bottom:3px}
+  .log-item{font-family:ui-monospace,Consolas,monospace;font-size:11.5px;padding-left:4px;white-space:pre-wrap}
+  .lg-root{color:#b45309}
+  .lg-err{color:var(--err)}
+  .lg-ok{color:var(--acc)}
+  .lg-join{color:var(--join)}
+  .lg-msg{color:#334155}
+  .lg-muted{color:#94a3b8}
+  .rules{font-size:11.5px;color:#334155;line-height:1.5;margin-top:6px}
+  .rules code{background:#f1f5f9;border-radius:3px;padding:0 3px}
+  .hint{font-size:11.5px;color:var(--muted);margin-top:6px;line-height:1.5}
+  details summary{cursor:pointer;font-size:12.5px;color:var(--muted);outline:none}
+</style>
+</head>
+<body>
+<header>
+  <h1>TokBin Step-by-step Visualization</h1>
+  <span class="sub">Algorithm <b>TokBinR</b> (root <i>r</i>) + <b>TokBinV</b> (node <i>v&ne;r</i>) &middot; semi-uniform, synchronous, self-stabilizing BFS<sup>&equiv;3</sup> construction</span>
+</header>
+
+<main>
+  <!-- ============================ Left: controls ============================ -->
+  <aside class="card">
+    <h2>Controls</h2>
+
+    <label class="row"><span>Total nodes N</span><b id="nVal">10</b></label>
+    <input type="range" id="nRange" min="3" max="24" value="10">
+
+    <label class="row" style="margin-top:10px"><span>Topology</span></label>
+    <select id="topoSel">
+      <option value="chain">Chain</option>
+      <option value="cycle">Cycle</option>
+      <option value="grid">Grid</option>
+      <option value="tree">Random tree</option>
+      <option value="random" selected>Random graph</option>
+    </select>
+
+    <label class="row" style="margin-top:10px"><span>Edge density</span><b id="densVal">100%</b></label>
+    <input type="range" id="densRange" min="0" max="100" step="5" value="100">
+
+    <label class="row" style="margin-top:10px"><span>Initial configuration</span></label>
+    <select id="initSel">
+      <option value="reset">All reset (&perp;, false, 0) &rarr; watch BFS grow</option>
+      <option value="ideal">Ideal ranks (dist mod 3), b=0</option>
+      <option value="randomRank">Random ranks</option>
+      <option value="randomAll" selected>Fully random (incl. &top;)</option>
+    </select>
+
+    <div class="sep"></div>
+
+    <label class="row"><span>Time per step</span><b id="spVal">800 ms</b></label>
+    <input type="range" id="spRange" min="150" max="2000" step="50" value="800">
+
+    <div class="ctrl-row">
+      <button class="primary" id="btnPlay"><span class="ic">&#9654;</span><span class="lbl">Play</span></button>
+      <button id="btnStep"><span class="ic">&#9197;</span><span class="lbl">Step</span></button>
+      <button id="btnReset"><span class="ic">&#8634;</span><span class="lbl">Reset</span></button>
+      <button id="btnNew"><span class="ic">&#127922;</span><span class="lbl">Random</span></button>
+    </div>
+
+    <!-- Display options default to on; kept as (hidden) state holders so the
+         simulation still reads app.showOffers / showMsgContent / showBfs. -->
+    <div class="chk" style="display:none"><input type="checkbox" id="cOffers" checked><label for="cOffers">Show every token offer (incl. ignored)</label></div>
+    <div class="chk" style="display:none"><input type="checkbox" id="cMsg" checked><label for="cMsg">Animate message contents</label></div>
+    <div class="chk" style="display:none"><input type="checkbox" id="cBfs" checked><label for="cBfs">Highlight BFS parent edges</label></div>
+
+    <div class="sep"></div>
+    <div class="stat"><span>Edges</span><b id="statEdges">&mdash;</b></div>
+    <div class="stat"><span>Average degree</span><b id="statDeg">&mdash;</b></div>
+    <div class="stat"><span>Max distance from root</span><b id="statEcc">&mdash;</b></div>
+
+    <details style="margin-top:10px">
+      <summary>Rule cheat-sheet</summary>
+      <div class="rules">
+        <b>TokBinR (root)</b><br>
+        <code>R_erRoot</code>: neighbourhood not synced / not all reset / not all in error &rarr; b<sub>r</sub>:=&top;<br>
+        <code>R_go</code>: all neighbours cleaned up &rarr; b<sub>r</sub>:=1<br><br>
+        <b>TokBinV (non-root)</b><br>
+        <code>R_er</code>: b&ne;&top; &and; Er(v) &rarr; t:=wait, b:=&top;<br>
+        <code>R_reset</code>: b=&top; &or; Er_var &rarr; rk:=&perp;, t:=false, b:=0<br>
+        <code>R_erRank</code>: &not;Er &and; rk&ne;&perp; &and; t=false &and; TakeO &rarr; t:=wait, b:=&top;<br>
+        <code>R_join</code>: &not;Er &and; rk=&perp; &and; TakeR &rarr; rk:=rk<sub>t</sub>, b:=1<br>
+        <code>R_tok</code>: &not;Er &and; rk&ne;&perp; &and; t=false &and; TakeP &rarr; t:=true<br>
+        <code>R_add</code>: &not;Er &and; t=true &rarr; t:=wait, b:=(b+1)%2<br>
+        <code>R_ready</code>: &not;Er &and; t=wait &rarr; t:=false
+        <div style="margin-top:8px;border-top:1px dashed var(--line);padding-top:7px">
+          <b>Three deliberate deviations from the paper</b> (otherwise a random initial configuration livelocks forever):<br>
+          (1) The enabling condition of <code>R_go</code> is relaxed from &ldquo;all neighbours b=&top;&rdquo; to &ldquo;all &top; <i>or</i> all Reset&rdquo;: a dormant node has no error left to receive and never becomes &top;, so the root would park at &top; and stop emitting tokens forever.<br>
+          (2) <code>Er_pi</code> compares only <b>ranked</b> neighbours. If &perp; neighbours were included, phases inside a cleanup wave always disagree, so <code>Er_pi</code> self-triggers an unbounded <code>R_er</code>/<code>R_reset</code> oscillation.<br>
+          (3) A node already in <code>Reset(v)</code> does not re-enter error merely because a neighbour holds &top;, which avoids &top; ping-ponging between two adjacent nodes.
+        </div>
+      </div>
+    </details>
+  </aside>
+
+  <!-- ============================ Middle: graph ============================ -->
+  <section class="card" id="stagewrap">
+    <h2>Network state <span id="stepLabel" style="float:right;color:#0f172a;font-weight:700">Step 0</span></h2>
+    <div id="stage-legend">
+      <span><i style="background:#dbeafe;border:2px solid var(--rk0)"></i>rk=0</span>
+      <span><i style="background:#dcfce7;border:2px solid var(--rk1)"></i>rk=1</span>
+      <span><i style="background:#ffedd5;border:2px solid var(--rk2)"></i>rk=2</span>
+      <span><i style="background:#e5e7eb;border:2px solid var(--bot)"></i>rk=&perp; / RESET</span>
+      <span><i style="background:#fee2e2;border:2px solid var(--err)"></i>b=&top; / ERROR</span>
+      <span><i style="background:#facc15;border:1px solid #a16207;border-radius:50%"></i>TOKEN held</span>
+    </div>
+    <svg id="graph" viewBox="0 0 820 540" preserveAspectRatio="xMidYMid meet"></svg>
+    <div class="hint" id="explain">Press &ldquo;Step&rdquo; or &ldquo;Play&rdquo; to watch how the triple (rk, t, b) changes on every node.</div>
+  </section>
+
+  <!-- ============================ Right: variables + log ============================ -->
+  <aside class="card">
+    <h2>Local variables</h2>
+    <div class="tblwrap">
+      <table id="varTable">
+        <thead><tr><th>node</th><th>rk</th><th>t</th><th>b</th><th>Reset?</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+    <div class="sep"></div>
+    <h2>Messages / event log</h2>
+    <div id="log"></div>
+  </aside>
+</main>
+
+<script>
+/* =====================================================================
+   Constants & helpers
+   ===================================================================== */
+const SVGNS='http://www.w3.org/2000/svg';
+const T_FALSE=0, T_TRUE=1, T_WAIT=2;   // 0=false, 1=true, 2=wait
+const RBOT='bot';                       // rk = perp
+const BTOP='top';                       // b  = top
+const TOTW=820, TOTH=540;
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+const rnd=n=>Math.floor(Math.random()*n);
+
+function setPlayLabel(icon,text){
+  const b=document.getElementById('btnPlay');
+  if(!b) return;
+  const ic=b.querySelector('.ic'), lb=b.querySelector('.lbl');
+  if(ic) ic.textContent=icon;
+  if(lb) lb.textContent=text;
+}
+
+const app={
+  N:10, topology:'random', initMode:'randomAll', stepMs:800, density:100,
+  playing:false, busy:false, step:0,
+  showOffers:true, showMsgContent:true, showBfs:true,
+  G:null, svg:null, edgeLayer:null, msgLayer:null, nodeLayer:null, doneLayer:null
+};
+
+/* ---------- Labels ---------- */
+function rkLabel(v){ return v.isRoot ? '0*' : (v.rk===RBOT ? '⊥' : String(v.rk)); }
+function tLong(v){ return v.t===T_FALSE?'false':v.t===T_TRUE?'true':'wait'; }
+function tShort(v){ return v.t===T_FALSE?'F':v.t===T_TRUE?'T':'W'; }
+function bLabel(v){ return v.b===BTOP?'⊤':String(v.b); }
+function trip(v){ return `(${rkLabel(v)}, ${tLong(v)}, ${bLabel(v)})`; }
+
+/* =====================================================================
+   Graph: construction + layout
+   ===================================================================== */
+function buildGraph(){
+  const N=app.N;
+  const G={nodes:[],edges:[],adj:[],topology:app.topology,radius:16};
+  for(let i=0;i<N;i++) G.nodes.push({id:i, name:i===0?'r':'v'+i, rk:0,t:T_TRUE,b:1,isRoot:i===0, x:0,y:0, dist:0});
+  const has=(a,b)=>G.edges.some(e=>(e[0]===a&&e[1]===b)||(e[0]===b&&e[1]===a));
+  const t=app.topology, ed=G.edges;
+
+  if(t==='chain'){ for(let i=0;i+1<N;i++) ed.push([i,i+1]); }
+  else if(t==='cycle'){
+    for(let i=0;i<N;i++){ const j=(i+1)%N; if(i<j) ed.push([i,j]); }
+    if(N===2){ ed.length=0; ed.push([0,1]); }
+  }
+  else if(t==='grid'){
+    const cols=Math.ceil(Math.sqrt(N));    for(let i=0;i<N;i++){ const r=Math.floor(i/cols), c=i%cols;
+      if(c+1<cols && i+1<N) ed.push([i,i+1]);
+      if(i+cols<N) ed.push([i,i+cols]);
+    }
+  }
+  else if(t==='tree'){ for(let i=1;i<N;i++) ed.push([i,rnd(i)]); }
+  else { // random
+    for(let i=1;i<N;i++) ed.push([i,rnd(i)]);
+    let extra=Math.round(N*0.25), guard=0;
+    while(extra>0 && guard++<3000){ const a=rnd(N),b=rnd(N); if(a!==b && !has(a,b)){ ed.push([a,b]); extra--; } }
+  }
+
+  applyDensity(G);
+
+  G.adj=Array.from({length:N},()=>[]);
+  for(const [a,b] of ed){ G.adj[a].push(G.nodes[b]); G.adj[b].push(G.nodes[a]); }
+
+  // BFS distances (used only for layout and the "ideal rank" initial configuration)
+  const d=Array(N).fill(Infinity); d[0]=0; const q=[0];
+  while(q.length){ const x=q.shift(); for(const u of G.adj[x]) if(d[u.id]===Infinity){ d[u.id]=d[x]+1; q.push(u.id); } }
+  G.nodes.forEach(v=>v.dist=d[v.id]);
+
+  layout(G);
+  return G;
+}
+
+/* ---------------------------------------------------------------------
+   Edge density: keep every bridge of a spanning tree (so the graph stays
+   connected at 0%) and drop redundant edges at random with probability
+   (100 - density)%.  On a grid this turns "always 4 edges per node" into
+   a mix of 1..4, e.g. 50% density ~ average degree 2 + a few cycles.
+   --------------------------------------------------------------------- */
+function applyDensity(G){
+  const N=G.nodes.length;
+  const pct=Math.max(0,Math.min(100, app.density));
+  if(pct>=100){ G.densityInfo={kept:G.edges.length, dropped:0, total:G.edges.length}; return; }
+
+  // 1. BFS spanning tree from the root over the full skeleton -> mandatory edges.
+  const cand=new Map();                        // "a-b" -> [a,b]
+  const key=(a,b)=> a<b ? a+'-'+b : b+'-'+a;
+  for(const [a,b] of G.edges) cand.set(key(a,b),[a,b]);
+  const nbr=Array.from({length:N},()=>[]);
+  for(const [a,b] of G.edges){ nbr[a].push(b); nbr[b].push(a); }
+  const seen=new Set([0]), queue=[0], treeKeys=new Set();
+  while(queue.length){
+    const x=queue.shift();
+    for(const y of nbr[x]){
+      if(seen.has(y)) continue;
+      seen.add(y); queue.push(y);
+      treeKeys.add(key(x,y));
+    }
+  }
+  // 2. Redundant edges survive with probability pct/100.
+  const keep=[], dropped=[];
+  for(const [k,e] of cand){
+    if(treeKeys.has(k)) keep.push(e);
+    else if(rnd(100) < pct) keep.push(e);
+    else dropped.push(e);
+  }
+  G.droppedEdges=dropped;
+  G.edges.length=0;
+  for(const e of keep) G.edges.push(e);
+  G.densityInfo={ kept:keep.length, dropped:dropped.length, total:cand.size,
+                  treeOnly:[...treeKeys].length };
+}
+
+function layout(G){
+  const N=G.nodes.length, W=TOTW, H=TOTH;
+  const padX=64, padT=96, padB=58;   // extra top room for ERROR/TOKEN tags + banner
+  const innerW=W-2*padX, innerH=H-padT-padB;
+  const t=G.topology;
+  if(t==='chain'){
+    const rows=Math.max(1,Math.ceil(N/10)), cols=Math.ceil(N/rows);
+    for(let i=0;i<N;i++){
+      const row=Math.floor(i/cols); let col=i%cols; if(row%2===1) col=cols-1-col;
+      const v=G.nodes[i];
+      v.x = (cols===1)? W/2 : padX + innerW*col/(cols-1);
+      v.y = (rows===1)? H/2 : padT + innerH*row/(rows-1);
+    }
+    G.radius = (rows===1) ? Math.max(13, Math.min(22, innerW/Math.max(1,N-1)*0.34)) : 19;
+  } else if(t==='grid'){
+    const cols=Math.ceil(Math.sqrt(N)), rows=Math.ceil(N/cols);
+    for(let i=0;i<N;i++){
+      const r=Math.floor(i/cols), c=i%cols, v=G.nodes[i];
+      v.x = (cols===1)? W/2 : padX + innerW*c/(cols-1);
+      v.y = (rows===1)? H/2 : padT + innerH*r/(rows-1);
+    }
+    G.radius=20;
+  } else {
+    const order=[...G.nodes].sort((a,b)=>(a.dist-b.dist)||(a.id-b.id)).map(v=>v.id);
+    const cx=W/2, cy=padT+innerH/2, R=Math.min(innerW,innerH)/2+6;
+    order.forEach((id,k)=>{ const a=-Math.PI/2 + 2*Math.PI*k/N; G.nodes[id].x=cx+R*Math.cos(a); G.nodes[id].y=cy+R*Math.sin(a); });
+    G.radius=Math.max(14, Math.min(22, R*Math.sin(Math.PI/N)*0.85));
+  }
+}
+
+/* =====================================================================
+   Predicates
+   ===================================================================== */
+function Reset(v){ return v.rk===RBOT && v.t===T_FALSE && v.b===0; }
+function parents(G,v){ if(v.rk===RBOT) return []; return G.adj[v.id].filter(u=> u.rk!==RBOT && u.rk===((v.rk+2)%3)); }
+function children(G,v){ if(v.rk===RBOT) return []; return G.adj[v.id].filter(u=> u.rk!==RBOT && u.rk===((v.rk+1)%3)); }
+function siblings(G,v){ if(v.rk===RBOT) return []; return G.adj[v.id].filter(u=> u.rk!==RBOT && u.rk===v.rk); }
+function Tok(G,v){ return G.adj[v.id].filter(u=> u.t===T_TRUE && u.b===1); }
+function sameSet(a,b){ if(a.length!==b.length) return false; const s=new Set(a.map(x=>x.id)); return b.every(x=>s.has(x.id)); }
+function TakeP(G,v){ const T=Tok(G,v); if(!T.length) return false; return sameSet(T, parents(G,v)); }
+function TakeO(G,v){ const T=Tok(G,v); if(!T.length) return false; return !sameSet(T, parents(G,v)); }
+function TokRk(G,v){ const T=Tok(G,v); if(!T.length) return null; if(T.some(u=>u.rk===RBOT)) return null; return Math.min(...T.map(u=>u.rk)); }
+function TakeR(G,v){
+  const T=Tok(G,v); if(!T.length) return false;
+  if(T.some(u=>u.rk===RBOT)) return false;
+  const trk=TokRk(G,v);
+  const same=G.adj[v.id].filter(u=> u.rk!==RBOT && u.rk===trk);
+  return same.length>0 && sameSet(same,T);
+}
+
+/* --------- Error detection predicates (paper Sec. "Error Detection Predicates") --------- */
+function Er_prg(G,v){ return G.adj[v.id].some(u=>u.b===BTOP); }
+function Er_var(v){ return v.rk===RBOT && !Reset(v); }
+function Er_Root(G,v){ return G.adj[v.id].some(u=>u.isRoot) && parents(G,v).length>1; }
+function Er_noP(G,v){ return v.rk!==RBOT && parents(G,v).length===0; }
+function diffPair(list){ for(let i=0;i<list.length;i++) for(let j=i+1;j<list.length;j++) if(list[i].b!==list[j].b||list[i].t!==list[j].t) return true; return false; }
+function Er_P(G,v){ return diffPair(parents(G,v)); }
+function Er_C(G,v){ return diffPair(children(G,v)); }
+function Er_S(G,v){ return siblings(G,v).some(u=> u.b!==v.b || u.t!==v.t); }
+function Er_Re(G,v){ return v.rk!==RBOT && children(G,v).length>0 && v.t!==T_TRUE && G.adj[v.id].some(u=>u.rk===RBOT); }
+function Er_N(G,v){ return !Er_prg(G,v) && v.b!==BTOP && !TakeO(G,v) && (Er_P(G,v)||Er_C(G,v)||Er_S(G,v)||Er_Re(G,v)); }
+function Er_pi(G,v){
+  if(!Reset(v)) return false;
+  // Compare only *ranked* neighbours: this predicate is meant to catch two competing
+  // BFS levels. Including dormant (perp) neighbours makes phases inside a cleanup wave
+  // always disagree, so Er_pi would self-trigger an unbounded R_er/R_reset oscillation.
+  const nb=G.adj[v.id].filter(u=>u.rk!==RBOT);
+  for(let i=0;i<nb.length;i++) for(let j=i+1;j<nb.length;j++)
+    if(nb[i].rk===nb[j].rk && (nb[i].b!==nb[j].b || nb[i].t!==nb[j].t)) return true;
+  return false;
+}
+function Er(G,v){
+  if(Er_prg(G,v)) return 'Er_prg';
+  if(Er_Root(G,v)) return 'Er_Root';
+  if(Er_noP(G,v)) return 'Er_noP';
+  if(Er_pi(G,v)) return 'Er_pi';
+  if(Er_tp(G,v)) return 'Er_tp';
+  if(Er_wait(G,v)) return 'Er_wait';
+  if(Er_N(G,v)) return 'Er_N';
+  return null;           // note: Er_var is deliberately NOT part of Er(v)
+}
+function Er_tp(G,v){
+  if(Er_prg(G,v) || v.b===BTOP) return false;
+  const hasChildTok = children(G,v).some(u=>u.t===T_TRUE);
+  return hasChildTok && !(v.t===T_WAIT && v.b===0);
+}
+function Er_wait(G,v){ return v.t===T_WAIT && v.b===0 && G.adj[v.id].some(u=>Reset(u)); }
+
+/* =====================================================================
+   One synchronous step: every node's next state is computed from one snapshot
+   ===================================================================== */
+function computeStep(G){
+  const next=new Map(), nodeRules=new Map(), messages=[];
+  let rootInfo=null;
+
+  /* ---------- Root: TokBinR ---------- */
+  const r=G.nodes[0], nb=G.adj[0];
+  const NSynch = nb.length>0 && nb.every(u=>u.rk===1) && nb.every(u=>u.b===nb[0].b) && nb.every(u=>u.t===nb[0].t);
+  const NReset = nb.length>0 && nb.every(u=>Reset(u));
+  const NEr    = nb.length>0 && nb.every(u=>u.b===BTOP);
+  {
+    let rule=null, nbv=r.b;
+    // R_go is enabled when all neighbours have finished cleaning up: all top (signalling
+    // an error) OR all dormant (Reset). With N_Er only, the root would park at top forever,
+    // because a dormant node has no error left to receive and never becomes top; the root
+    // would stop emitting tokens and the whole network would stall.
+    if(r.b!==BTOP && !(NSynch||NReset||NEr)){ nbv=BTOP; rule='R_erRoot'; }
+    else if(r.b===BTOP && (NEr||NReset)){ nbv=1; rule='R_go'; }
+    next.set(r.id,{rk:r.rk,t:r.t,b:nbv});
+    const info={rule, before:{rk:r.rk,t:r.t,b:r.b}, preds:{NSynch,NReset,NEr}};
+    nodeRules.set(r.id, info);
+    if(rule) rootInfo=info;
+  }
+
+  /* ---------- Non-root: TokBinV ---------- */
+  for(const v of G.nodes){
+    if(v.isRoot) continue;
+    const before={rk:v.rk,t:v.t,b:v.b};
+    // A dormant node (Reset(v)) must not re-enter error just because a neighbour holds top,
+    // otherwise R_er/R_reset would oscillate forever between adjacent nodes. For a node with
+    // rk=perp, the only predicate besides Er_prg that can hold is Er_pi.
+    let er=Er(G,v);
+    if(er==='Er_prg' && Reset(v)) er=Er_pi(G,v)?'Er_pi':null;
+    const takeO = v.rk!==RBOT ? TakeO(G,v) : false;
+    const takeP = v.rk!==RBOT ? TakeP(G,v) : false;
+    const takeR = v.rk===RBOT  ? TakeR(G,v) : false;
+
+    let nrk=v.rk, nt=v.t, nbv=v.b, rule=null;
+    if(v.b!==BTOP && er){                                    // R_er
+      nt=T_WAIT; nbv=BTOP; rule='R_er';
+    } else if(v.b===BTOP || Er_var(v)){                      // R_reset
+      nrk=RBOT; nt=T_FALSE; nbv=0; rule='R_reset';
+    } else if(v.rk!==RBOT && v.t===T_FALSE && takeO){        // R_erRank
+      nt=T_WAIT; nbv=BTOP; rule='R_erRank';
+    } else if(v.rk===RBOT && takeR){                         // R_join
+      nrk=(TokRk(G,v)+1)%3; nbv=1; rule='R_join';
+    } else if(v.rk!==RBOT && v.t===T_FALSE && takeP){        // R_tok
+      nt=T_TRUE; rule='R_tok';
+    } else if(v.t===T_TRUE){                                 // R_add
+      nt=T_WAIT; nbv=(v.b===0?1:0); rule='R_add';
+    } else if(v.t===T_WAIT){                                 // R_ready
+      nt=T_FALSE; rule='R_ready';
+    }
+    next.set(v.id,{rk:nrk,t:nt,b:nbv});
+    nodeRules.set(v.id,{rule,before,preds:{er,takeP,takeO,takeR}});
+  }
+
+  /* ---------- Messages: every node with t=true and b=1 "offers" a token to all neighbours ---------- */
+  for(const u of G.nodes){
+    if(!(u.t===T_TRUE && u.b===1)) continue;
+    for(const w of G.adj[u.id]){
+      if(w.isRoot) continue;                       // the root never receives a token
+      const info=nodeRules.get(w.id)||{};
+      let outcome='ignored';
+      if(info.rule==='R_tok') outcome='accepted';
+      else if(info.rule==='R_join') outcome='join';
+      else if(info.rule==='R_erRank') outcome='anomaly';
+      else if(info.rule==='R_er') outcome='error';
+      messages.push({from:u,to:w,outcome,rule:info.rule||null});
+    }
+  }
+
+  return {next,nodeRules,rootInfo,messages};
+}
+
+function applyNext(G,next){
+  for(const v of G.nodes){ const s=next.get(v.id); v.rk=s.rk; v.t=s.t; v.b=s.b; }
+}
+
+/* ---------------------------------------------------------------------
+   Completion test: every node carries its BFS level (rk = dist mod 3),
+   no node is dormant (rk=perp) and no node is signalling an error (b=top).
+   The token circulation itself never stops (the algorithm is non-silent),
+   but the BFS^=3 structure is then formally built.
+   --------------------------------------------------------------------- */
+function computeDone(G){
+  if(G.nodes.some(v=>!v.isRoot && (v.rk===RBOT || v.dist===Infinity))) return false;
+  if(G.nodes.some(v=>v.b===BTOP)) return false;
+  return G.nodes.every(v=> v.isRoot || v.rk === (v.dist % 3));
+}
+
+/* =====================================================================
+   Rendering
+   ===================================================================== */
+function drawGraph(){
+  const G=app.G, svg=app.svg;
+  svg.innerHTML='';
+  svg.setAttribute('viewBox',`0 0 ${TOTW} ${TOTH}`);
+  app.edgeLayer=document.createElementNS(SVGNS,'g'); svg.appendChild(app.edgeLayer);
+  app.msgLayer =document.createElementNS(SVGNS,'g'); svg.appendChild(app.msgLayer);
+  app.nodeLayer=document.createElementNS(SVGNS,'g'); svg.appendChild(app.nodeLayer);
+  app.doneLayer=document.createElementNS(SVGNS,'g'); svg.appendChild(app.doneLayer);
+  app.doneLayer.setAttribute('style','pointer-events:none');
+
+  // Ghost edges removed by the density slider, so the "missing" links stay visible.
+  if(G.droppedEdges){
+    const gl=document.createElementNS(SVGNS,'g');
+    for(const [a,b] of G.droppedEdges){
+      const l=document.createElementNS(SVGNS,'line');
+      l.setAttribute('x1',G.nodes[a].x); l.setAttribute('y1',G.nodes[a].y);
+      l.setAttribute('x2',G.nodes[b].x); l.setAttribute('y2',G.nodes[b].y);
+      l.setAttribute('stroke','#f1f5f9'); l.setAttribute('stroke-width','1.4');
+      l.setAttribute('stroke-dasharray','2 6');
+      gl.appendChild(l);
+    }
+    app.edgeLayer.appendChild(gl);
+  }
+
+  G.edgeEls=[];
+  for(const [a,b] of G.edges){
+    const l=document.createElementNS(SVGNS,'line');
+    l.setAttribute('x1',G.nodes[a].x); l.setAttribute('y1',G.nodes[a].y);
+    l.setAttribute('x2',G.nodes[b].x); l.setAttribute('y2',G.nodes[b].y);
+    l.setAttribute('class','edge');
+    app.edgeLayer.appendChild(l);
+    G.edgeEls.push({el:l,a,b});
+  }
+
+  const R=G.radius;
+  G.nodeEls=[];
+  for(const v of G.nodes){
+    const g=document.createElementNS(SVGNS,'g');
+
+    const c=document.createElementNS(SVGNS,'circle');
+    c.setAttribute('cx',v.x); c.setAttribute('cy',v.y); c.setAttribute('r',R); c.setAttribute('class','node');
+
+    // (rk, t, b) read-out below the node, on an opaque white background
+    const txt=`(${rkLabel(v)}, ${tShort(v)}, ${bLabel(v)})`;
+    const bw=Math.max(38, txt.length*6.35+9), bh=15;
+    const box=document.createElementNS(SVGNS,'rect');
+    box.setAttribute('x',v.x-bw/2); box.setAttribute('y',v.y+R+4);
+    box.setAttribute('width',bw); box.setAttribute('height',bh); box.setAttribute('rx',4);
+    box.setAttribute('class','info-box');
+    const info=document.createElementNS(SVGNS,'text');
+    info.setAttribute('x',v.x); info.setAttribute('y',v.y+R+4+11); info.setAttribute('class','node-info');
+    info.textContent=txt;
+
+    // top-centre status tag: red ERROR (b = top) or grey RESET (Reset(v))
+    // The two are mutually exclusive, so they share one slot.
+    const mkTag=(bgCls,txtCls,label)=>{
+      const gg=document.createElementNS(SVGNS,'g');
+      const w=label.length*5.6+8;
+      const rect=document.createElementNS(SVGNS,'rect');
+      rect.setAttribute('width',w); rect.setAttribute('height',11); rect.setAttribute('rx',2.5);
+      rect.setAttribute('class',bgCls);
+      const tt=document.createElementNS(SVGNS,'text');
+      tt.setAttribute('x',w/2); tt.setAttribute('y',8);
+      tt.setAttribute('text-anchor','middle'); tt.setAttribute('class','tag '+txtCls);
+      tt.textContent=label;
+      gg.append(rect,tt);
+      gg.style.display='none';
+      return {gg,w};
+    };
+    const errTag=mkTag('tag-bg-err','tag-err','ERROR');
+    const resetTag=mkTag('tag-bg-reset','tag-reset','RESET');
+
+    // top-right yellow dot: the node currently holds the token (t = true)
+    const tok=document.createElementNS(SVGNS,'circle');
+    tok.setAttribute('cx',v.x+R*0.68); tok.setAttribute('cy',v.y-R*0.68); tok.setAttribute('r',6);
+    tok.setAttribute('class','tok-badge'); tok.style.display='none';
+
+    const idt=document.createElementNS(SVGNS,'text');
+    idt.setAttribute('x',v.x); idt.setAttribute('y',v.y+4); idt.setAttribute('class','node-id'); idt.textContent=v.name;
+
+    g.append(c,box,info,idt,tok,errTag.gg,resetTag.gg);
+    app.nodeLayer.appendChild(g);
+    G.nodeEls.push({g,c,box,info,idt,tok,errTag,resetTag,R});
+  }
+  updateView();
+}
+
+/* --------- Status banner, always shown in the top-left of the canvas --------- */
+function renderDoneBanner(){
+  const G=app.G;
+  app.doneLayer.innerHTML='';
+  const done=!!G.done;
+  const w=214, h=54, x=14, y=12;
+  const rect=document.createElementNS(SVGNS,'rect');
+  rect.setAttribute('x',x); rect.setAttribute('y',y); rect.setAttribute('width',w); rect.setAttribute('height',h);
+  rect.setAttribute('rx',9); rect.setAttribute('class','done-box'+(done?' done':''));
+
+  const cx=x+24, cy=y+h/2;
+  if(done){
+    // tick inside a green circle
+    const circ=document.createElementNS(SVGNS,'circle');
+    circ.setAttribute('cx',cx); circ.setAttribute('cy',cy); circ.setAttribute('r',13);
+    circ.setAttribute('fill','#16a34a');
+    const tick=document.createElementNS(SVGNS,'path');
+    tick.setAttribute('d',`M ${cx-6.4} ${cy+0.4} L ${cx-2.1} ${cy+4.6} L ${cx+6.6} ${cy-4.8}`);
+    tick.setAttribute('fill','none'); tick.setAttribute('stroke','#ffffff');
+    tick.setAttribute('stroke-width','3'); tick.setAttribute('stroke-linecap','round');
+    tick.setAttribute('stroke-linejoin','round');
+    app.doneLayer.append(rect,circ,tick);
+  }else{
+    // grey rotating-arc (progress) glyph
+    const arc=document.createElementNS(SVGNS,'circle');
+    arc.setAttribute('cx',cx); arc.setAttribute('cy',cy); arc.setAttribute('r',11);
+    arc.setAttribute('fill','none'); arc.setAttribute('stroke','#94a3b8');
+    arc.setAttribute('stroke-width','3.2'); arc.setAttribute('stroke-linecap','round');
+    arc.setAttribute('stroke-dasharray','17 52');
+    const hub=document.createElementNS(SVGNS,'circle');
+    hub.setAttribute('cx',cx); hub.setAttribute('cy',cy); hub.setAttribute('r',3.4);
+    hub.setAttribute('fill','#94a3b8');
+    app.doneLayer.append(rect,arc,hub);
+  }
+
+  const title=document.createElementNS(SVGNS,'text');
+  title.setAttribute('x',x+44); title.setAttribute('y',y+23); title.setAttribute('class','done-title'+(done?' done':''));
+  title.textContent = done ? 'COMPLETE' : 'RUNNING';
+  const sub=document.createElementNS(SVGNS,'text');
+  sub.setAttribute('x',x+44); sub.setAttribute('y',y+41); sub.setAttribute('class','done-sub'+(done?' done':''));
+  sub.textContent = done
+    ? `BFS\u22613 built at step ${G.doneStep ?? app.step}`
+    : `Step ${app.step} \u00B7 BFS\u22613 not stable yet`;
+
+  app.doneLayer.append(title,sub);
+}
+
+function updateView(){
+  const G=app.G;
+  for(const v of G.nodes){
+    const e=G.nodeEls[v.id];
+    let cls='node';
+    cls += v.rk===RBOT ? ' rkbot' : ' rk'+v.rk;
+    if(v.isRoot) cls+=' root';
+    if(v.b===BTOP) cls+=' err';
+    e.c.setAttribute('class',cls);
+
+    const txt=`(${rkLabel(v)}, ${tShort(v)}, ${bLabel(v)})`;
+    e.info.textContent=txt;
+    const bw=Math.max(38, txt.length*6.35+9);
+    e.box.setAttribute('x', v.x-bw/2);
+    e.box.setAttribute('width', bw);
+
+    const isErr = v.b===BTOP;
+    const isReset = Reset(v);
+    const R=e.R;
+    // ERROR / RESET share the single slot centred above the node.
+    e.errTag.gg.style.display = isErr ? '' : 'none';
+    e.resetTag.gg.style.display = (!isErr && isReset) ? '' : 'none';
+    const shown = isErr ? e.errTag : e.resetTag;
+    if (isErr || isReset) shown.gg.setAttribute('transform',`translate(${v.x-shown.w/2},${v.y-R-14})`);
+    // Yellow dot at the node's top-right corner = holds the token.
+    e.tok.style.display = (v.t===T_TRUE) ? '' : 'none';
+  }
+  for(const {el,a,b} of G.edgeEls){
+    const na=G.nodes[a], nbb=G.nodes[b];
+    let cls='edge';
+    if(app.showBfs && na.rk!==RBOT && nbb.rk!==RBOT){
+      const parent = (nbb.rk===(na.rk+1)%3) || (na.rk===(nbb.rk+1)%3);
+      const sib    = (na.rk===nbb.rk);
+      if(parent) cls+=' parent'; else if(sib) cls+=' sib';
+    }
+    el.setAttribute('class',cls);
+  }
+  renderDoneBanner();
+}
+
+/* --------- Message animation --------- */
+function colorFor(o){ return o==='accepted'?'#16a34a':o==='join'?'#2563eb':(o==='anomaly'||o==='error')?'#dc2626':'#94a3b8'; }
+async function animateMessages(msgs,dur){
+  if(!msgs.length){ return; }
+  const items=msgs.map(m=>{
+    const g=document.createElementNS(SVGNS,'g');
+    const c=document.createElementNS(SVGNS,'circle');
+    c.setAttribute('r',5.5); c.setAttribute('fill',colorFor(m.outcome));
+    c.setAttribute('stroke','#fff'); c.setAttribute('stroke-width','1.2');
+    g.appendChild(c);
+    let lab=null;
+    if(app.showMsgContent){
+      lab=document.createElementNS(SVGNS,'text');
+      lab.setAttribute('class','msg-label');
+      lab.textContent=`tok⟨rk=${rkLabel(m.from)}⟩`;
+      g.appendChild(lab);
+    }
+    app.msgLayer.appendChild(g);
+    return {g,c,lab,m};
+  });
+  const t0=performance.now();
+  return new Promise(res=>{
+    (function frame(now){
+      const p=Math.min(1,(now-t0)/dur), e=p<0.5?2*p*p:1-Math.pow(-2*p+2,2)/2;
+      for(const it of items){
+        const x=it.m.from.x+(it.m.to.x-it.m.from.x)*e;
+        const y=it.m.from.y+(it.m.to.y-it.m.from.y)*e;
+        it.c.setAttribute('cx',x); it.c.setAttribute('cy',y);
+        if(it.lab){ it.lab.setAttribute('x',x+8); it.lab.setAttribute('y',y-8); }
+      }
+      if(p<1) requestAnimationFrame(frame);
+      else { items.forEach(it=>it.g.remove()); res(); }
+    })(t0);
+  });
+}
+
+/* =====================================================================
+   Executing one "step" (with animation)
+   ===================================================================== */
+async function doStep(){
+  if(app.busy) return;
+  app.busy=true;
+  const G=app.G;
+  const {next,nodeRules,rootInfo,messages}=computeStep(G);
+
+  const visMsg = messages.filter(m=> app.showOffers || m.outcome!=='ignored');
+  const dur=Math.max(150, app.stepMs*0.62);
+  await animateMessages(visMsg, dur);
+  if(visMsg.length===0) await sleep(Math.min(220, app.stepMs*0.25));
+
+  applyNext(G,next);
+  app.step++;
+  if(!G.done && computeDone(G)){ G.done=true; G.doneStep=app.step; app.playing=false;
+    setPlayLabel('\u25B6','Play');
+    document.getElementById('btnPlay').classList.add('primary'); }
+  setStepLabel();
+  updateView();
+  renderTable(nodeRules);
+  renderLog(nodeRules, rootInfo, messages, visMsg);
+  updateExplain(nodeRules, rootInfo, messages);
+  app.busy=false;
+}
+
+/* =====================================================================
+   Right panel: variable table / log / explanation
+   ===================================================================== */
+function renderTable(nodeRules){
+  const tb=document.querySelector('#varTable tbody');
+  tb.innerHTML='';
+  for(const v of app.G.nodes){
+    const info=nodeRules? nodeRules.get(v.id) : null;
+    const tr=document.createElement('tr');
+    if(Reset(v)) tr.classList.add('reset');
+    if(info&&info.rule) tr.classList.add('fired');
+    const cells=[v.name, rkLabel(v), tShort(v), bLabel(v), Reset(v)?'✓':'—'];
+    cells.forEach((txt,i)=>{
+      const td=document.createElement('td');
+      td.textContent=txt;
+      if(info&&info.before){
+        const b=info.before;
+        const now=[v.rk,v.t,v.b][i-1];
+        const was=[b.rk,b.t,b.b][i-1];
+        if(i>=1 && i<=3 && now!==was) td.classList.add('chg');
+      }
+      tr.appendChild(td);
+    });
+    tb.appendChild(tr);
+  }
+}
+
+const RULE_DESC={
+  R_er:'error detected: Er(v)', R_reset:'reset to Reset state', R_erRank:'token anomaly TakeO(v)',
+  R_join:'consistent token wave TakeR(v), join the structure', R_tok:'take the token TakeP(v)',
+  R_add:'release the token and flip the bit', R_ready:'become ready',
+  R_erRoot:'root neighbourhood inconsistent \u2192 signal error', R_go:'neighbours cleaned up \u2192 resume sending'
+};
+const RULE_EFFECT={
+  R_er:'t:=wait, b:=⊤', R_reset:'rk:=⊥, t:=false, b:=0', R_erRank:'t:=wait, b:=⊤',
+  R_join:'rk:=rk_t, b:=1', R_tok:'t:=true', R_add:'t:=wait, b:=(b+1)%2',
+  R_ready:'t:=false', R_erRoot:'b_r:=⊤', R_go:'b_r:=1'
+};
+
+function renderLog(nodeRules, rootInfo, messages, visMsg){
+  const box=document.getElementById('log');
+  const wrap=document.createElement('div'); wrap.className='log-step';
+  const h=document.createElement('div'); h.className='log-head'; h.textContent='Step '+app.step;
+  wrap.appendChild(h);
+
+  const line=(txt,cls)=>{ const d=document.createElement('div'); d.className='log-item '+(cls||''); d.textContent=txt; wrap.appendChild(d); };
+
+  // Root action
+  if(rootInfo){
+    const b=rootInfo.before, r=app.G.nodes[0];
+    line(`\u25C6 r : ${rootInfo.rule} [${RULE_DESC[rootInfo.rule]}]  ${trip({...r,...b,isRoot:true})} \u2192 ${RULE_EFFECT[rootInfo.rule]}`,
+         rootInfo.rule==='R_erRoot'?'lg-root':'lg-ok');
+  }
+  // Per-node rules
+  for(const v of app.G.nodes){
+    if(v.isRoot) continue;
+    const info=nodeRules.get(v.id);
+    if(!info||!info.rule) continue;
+    const cls = (info.rule==='R_er'||info.rule==='R_erRank'||info.rule==='R_reset')?'lg-err'
+              : (info.rule==='R_join')?'lg-join'
+              : (info.rule==='R_tok')?'lg-ok':'lg-msg';
+    let extra='';
+    if(info.rule==='R_er') extra=`  (Er=${info.preds.er})`;
+    if(info.rule==='R_erRank') extra='  (Tok(v) \u2260 Pa(v))';
+    if(info.rule==='R_join')  extra='  (Tok(v) = one single rank level)';
+    if(info.rule==='R_tok')   extra='  (Tok(v) = Pa(v))';
+    const beforeTxt=`(${info.before.rk===RBOT?'\u22A5':info.before.rk}, ${tLong({t:info.before.t})}, ${info.before.b===BTOP?'\u22A4':info.before.b})`;
+    line(`  \u25CF ${v.name} : ${info.rule}${extra}  ${beforeTxt} \u2192 ${RULE_EFFECT[info.rule]}`, cls);
+  }
+  // Messages
+  if(visMsg.length){
+    const byRx=new Map();
+    for(const m of visMsg){ if(!byRx.has(m.to.id)) byRx.set(m.to.id,[]); byRx.get(m.to.id).push(m); }
+    for(const [rxId,ms] of byRx){
+      const rx=app.G.nodes[rxId];
+      const senders=ms.map(m=>m.from.name).join(', ');
+      const oc=ms[0].outcome;
+      const ocTxt = oc==='accepted'?'receiver fires R_tok (takes the token)'
+                  : oc==='join'?'receiver fires R_join (joins the structure)'
+                  : oc==='anomaly'?'receiver fires R_erRank (anomaly \u2192 error)'
+                  : oc==='error'?'receiver fires R_er (error)':'ignored (no enabled rule / wrong timing)';
+      const cls = oc==='accepted'?'lg-ok': oc==='join'?'lg-join': (oc==='anomaly'||oc==='error')?'lg-err':'lg-muted';
+      const sample=ms[0];
+      line(`  \u2709 ${senders} \u2192 ${rx.name} : tok\u27E8rk=${rkLabel(sample.from)}, b=1\u27E9 \u21D2 ${ocTxt}`, cls);
+    }
+  }
+  if(wrap.childElementCount===1) line('  (no rule fired in this step)','lg-muted');
+
+  if(app.G.done && app.G.doneStep===app.step){
+    line(`  \u2713 COMPLETE: BFS\u22613 fully built at step ${app.step} \u2014 every node holds rk = dist mod 3.`,'lg-ok');
+  }
+
+  box.appendChild(wrap);
+  box.scrollTop=box.scrollHeight;
+
+  // Cap the log length
+  while(box.childElementCount>160) box.removeChild(box.firstChild);
+}
+
+function updateExplain(nodeRules, rootInfo, messages){
+  const G=app.G;
+  const ranked=G.nodes.filter(v=>!v.isRoot && v.rk!==RBOT).length;
+  const errs=G.nodes.filter(v=>v.b===BTOP).length;
+  const reset=G.nodes.filter(v=>Reset(v)).length;
+  const accepted=messages.filter(m=>m.outcome==='accepted'||m.outcome==='join').length;
+  const anom=messages.filter(m=>m.outcome==='anomaly'||m.outcome==='error').length;
+  let txt;
+  if(app.G.done) txt=`COMPLETE at step ${app.G.doneStep}: every node holds its BFS level rk = dist mod 3 and no node is in error. The algorithm is non-silent, so the token keeps circulating forever (R_tok \u2192 R_add \u2192 R_ready \u2192 R_tok).`;
+  else if(app.step===0) txt='Step 0: initial configuration. Grey dashed circle = rk=\u22A5 (reset).';
+  else if(errs>0) txt=`Error detected: ${errs} node(s) with b=\u22A4 (red ring + ERROR tag). The error spreads through Er_prg, then R_reset clears the state and R_join re-attaches the node.`;
+  else if(reset>0) txt=`BFS under construction: ${reset} node(s) still \u22A5 (waiting for a consistent token wave to fire R_join), ${ranked} node(s) already ranked.`;
+  else if(anom>0) txt=`${anom} token offer(s) disagree with the parent set (TakeO), so R_erRank signals an error.`;
+  else txt=`Token circulation: ${accepted} offer(s) accepted / merged in this step. All ranks are in place \u2192 BFS\u22613 is built and the algorithm entered its non-silent token-passing loop.`;
+  document.getElementById('explain').textContent=txt;
+}
+
+/* =====================================================================
+   Initial configuration
+   ===================================================================== */
+function resetState(){
+  const G=app.G;
+  for(const v of G.nodes){
+    if(v.isRoot){ v.rk=0; v.t=T_TRUE; v.b=1; continue; }
+    switch(app.initMode){
+      case 'reset':      v.rk=RBOT; v.t=T_FALSE; v.b=0; break;
+      case 'ideal':      v.rk=(v.dist===Infinity?RBOT:(v.dist%3)); v.t=T_FALSE; v.b=0; break;
+      case 'randomRank': v.rk=rnd(3); v.t=[T_FALSE,T_TRUE,T_WAIT][rnd(3)]; v.b=rnd(2); break;
+      case 'randomAll':  v.rk=(rnd(4)===3)?RBOT:rnd(3); v.t=rnd(3); v.b=(rnd(4)===3)?BTOP:rnd(2); break;
+    }
+  }
+  G.done=false; G.doneStep=null;
+  app.step=0;
+  if(computeDone(G)){ G.done=true; G.doneStep=0; }   // e.g. the "ideal ranks" configuration
+  document.getElementById('stepLabel').textContent='Step 0';
+  document.getElementById('log').innerHTML='';
+  updateView();
+  renderTable(null);
+  document.getElementById('explain').textContent='Step 0: initial configuration. Press \u201CStep\u201D or \u201CPlay\u201D to start.';
+}
+
+/* --------- Topology statistics (edges / degree / eccentricity) --------- */
+function renderStats(){
+  const G=app.G;
+  const m=G.edges.length;
+  const avg=(2*m/G.nodes.length).toFixed(2);
+  const ecc=Math.max(0, ...G.nodes.filter(v=>v.dist!==Infinity).map(v=>v.dist));
+  document.getElementById('statEdges').textContent = `${m}` +
+    (G.densityInfo && G.densityInfo.total!==m ? ` (of ${G.densityInfo.total})` : '');
+  document.getElementById('statDeg').textContent=avg;
+  document.getElementById('statEcc').textContent=`${ecc}  \u2192  2^${ecc} steps worst case`;
+}
+
+/* =====================================================================
+   Playback control
+   ===================================================================== */
+function setStepLabel(){ document.getElementById('stepLabel').textContent='Step '+app.step; }
+
+async function loop(){
+  while(app.playing){
+    await doStep();
+    await sleep(Math.max(60, app.stepMs*0.16));
+  }
+}
+
+function newGraph(){
+  app.G=buildGraph();
+  drawGraph();
+  renderStats();
+  resetState();
+  syncDensityEnabled();
+}
+
+/* --------- The density slider is a no-op when the skeleton is already a tree --------- */
+function syncDensityEnabled(){
+  const G=app.G;
+  const dR=document.getElementById('densRange');
+  const minimal = G.densityInfo && G.densityInfo.total === G.nodes.length-1;
+  dR.disabled = !!minimal;
+  dR.style.opacity = minimal ? .4 : 1;
+}
+
+/* =====================================================================
+   Event wiring
+   ===================================================================== */
+window.addEventListener('DOMContentLoaded',()=>{
+  app.svg=document.getElementById('graph');
+
+  const nR=document.getElementById('nRange'), nV=document.getElementById('nVal');
+  const spR=document.getElementById('spRange'), spV=document.getElementById('spVal');
+  const dR=document.getElementById('densRange'), dV=document.getElementById('densVal');
+
+  nR.addEventListener('input',()=>{ nV.textContent=nR.value; app.N=+nR.value; newGraph(); });
+  spR.addEventListener('input',()=>{ spV.textContent=spR.value+' ms'; app.stepMs=+spR.value; });
+  dR.addEventListener('input',()=>{ dV.textContent=dR.value+'%'; app.density=+dR.value; newGraph(); });
+
+  document.getElementById('topoSel').addEventListener('change',e=>{ app.topology=e.target.value; newGraph(); syncDensityEnabled(); });
+  document.getElementById('initSel').addEventListener('change',e=>{ app.initMode=e.target.value; resetState(); });
+
+  document.getElementById('cOffers').addEventListener('change',e=>{ app.showOffers=e.target.checked; });
+  document.getElementById('cMsg').addEventListener('change',e=>{ app.showMsgContent=e.target.checked; });
+  document.getElementById('cBfs').addEventListener('change',e=>{ app.showBfs=e.target.checked; updateView(); });
+
+  const btnPlay=document.getElementById('btnPlay');
+  btnPlay.addEventListener('click',()=>{
+    app.playing=!app.playing;
+    btnPlay.classList.toggle('primary', !app.playing);
+    setPlayLabel(app.playing ? '\u23F8' : '\u25B6', app.playing ? 'Pause' : 'Play');
+    if(app.playing) loop();
+  });
+  document.getElementById('btnStep').addEventListener('click',async()=>{
+    if(app.playing) return;
+    await doStep();
+  });
+  document.getElementById('btnReset').addEventListener('click',()=>resetState());
+  document.getElementById('btnNew').addEventListener('click',()=>newGraph());
+
+  document.addEventListener('keydown',e=>{
+    if(e.target.tagName==='SELECT'||e.target.tagName==='INPUT') return;
+    if(e.code==='Space'){ e.preventDefault(); btnPlay.click(); }
+    else if(e.code==='ArrowRight'){ e.preventDefault(); document.getElementById('btnStep').click(); }
+  });
+
+  // Initialise
+  nV.textContent=nR.value; app.N=+nR.value;
+  spV.textContent=spR.value+' ms'; app.stepMs=+spR.value;
+  dV.textContent=dR.value+'%'; app.density=+dR.value;
+  app.topology=document.getElementById('topoSel').value;
+  app.initMode=document.getElementById('initSel').value;
+  newGraph();
+});
+</script>
+</body>
+</html>
