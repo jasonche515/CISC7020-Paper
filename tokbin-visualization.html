@@ -26,7 +26,14 @@
     display:grid; grid-template-columns:270px minmax(420px,1fr) 360px;
     gap:12px; padding:12px; height:calc(100% - 52px); overflow:hidden;
   }
-  @media (max-width:1200px){ main{grid-template-columns:1fr; height:auto; overflow:auto} }
+  @media (max-width:1200px){
+    main{grid-template-columns:1fr; height:auto; overflow:auto; align-items:start}
+    /* single column: let every card size to its own content instead of stretching
+       to the tallest cell, so the table wrapper hugs the real table height */
+    .card{height:auto;align-self:start}
+    .tblwrap,#log{flex:0 0 auto;height:auto;max-height:none}
+    svg#graph{height:auto;aspect-ratio:820/540}
+  }
   .card{
     background:var(--panel); border:1px solid var(--line); border-radius:10px;
     padding:12px; box-shadow:0 1px 2px rgba(15,23,42,.04);
@@ -44,13 +51,21 @@
   button:hover{background:#f1f5f9}
   button.primary{background:#0f172a;color:#fff;border-color:#0f172a}
   button.primary:hover{background:#1e293b}
-  /* The four controls share one row: icon on top, label below. */
-  .ctrl-row{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:6px}
+  /* The controls share one row: icon on top, label below. */
+  .ctrl-row{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:6px}
   .ctrl-row button{
     display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;
     padding:7px 2px;font-size:11px;font-weight:600;flex:none;
   }
   .ctrl-row button .ic{font-size:15px;line-height:1}
+  /* Topology picker: same look as the four control buttons, selected one is dark. */
+  .topo-row{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+  .topo-row button{
+    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;
+    padding:7px 2px;font-size:11px;font-weight:600;flex:none;
+  }
+  .topo-row button .ic{font-size:15px;line-height:1}
+  .topo-row button.sel{background:#0f172a;color:#fff;border-color:#0f172a}
   .chk{display:flex;align-items:center;gap:7px;margin:5px 0;font-size:12.5px;color:#334155}
   .chk input{accent-color:#0f172a}
   .sep{height:1px;background:var(--line);margin:10px 0}
@@ -61,6 +76,11 @@
   .edge{stroke:#cbd5e1;stroke-width:1.6}
   .edge.sib{stroke:#e2e8f0;stroke-dasharray:4 4}
   .edge.parent{stroke:#0d9488;stroke-width:3.2}
+  .edge.cross{stroke:#cbd5e1;stroke-width:1.6}
+  .port{font-size:8px;fill:#94a3b8;text-anchor:middle;pointer-events:none;
+        font-family:ui-monospace,Consolas,monospace;paint-order:stroke;
+        stroke:#fbfdff;stroke-width:2.6px;stroke-linejoin:round}
+  .port.hi{fill:#0d9488;font-weight:700}
   .node{stroke-width:2}
   .node.rk0{fill:#dbeafe;stroke:var(--rk0)}
   .node.rk1{fill:#dcfce7;stroke:var(--rk1)}
@@ -84,17 +104,7 @@
   .done-title.done{fill:#15803d}
   .done-sub.done{fill:#166534}
   .msg-label{font-size:9.5px;fill:#334155;font-family:ui-monospace,Consolas,monospace}
-  .legend{display:flex;flex-wrap:wrap;gap:8px 14px;font-size:11.5px;color:#475569;margin-top:6px}
-  .legend i{display:inline-block;width:11px;height:11px;border-radius:3px;margin-right:4px;vertical-align:-1px}
-  /* Legend floats over the top-right corner of the graph so it can never be clipped. */
-  #stage-legend{
-    position:absolute;top:40px;right:18px;z-index:2;
-    display:flex;flex-direction:column;gap:4px;
-    padding:8px 10px;font-size:11px;color:#475569;
-    background:rgba(255,255,255,.92);border:1px solid var(--line);border-radius:8px;
-    box-shadow:0 1px 3px rgba(15,23,42,.08);pointer-events:none;
-  }
-  #stage-legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px;vertical-align:-1px}
+  .legend-txt{font-size:9.5px;fill:#475569;font-family:"Segoe UI",system-ui,sans-serif}
   .tblwrap{overflow:auto;flex:1;min-height:120px;border-top:1px solid var(--line)}
   table{border-collapse:collapse;width:100%;font-size:12px;font-family:ui-monospace,Consolas,monospace}
   th,td{padding:3px 6px;text-align:center;border-bottom:1px solid #f1f5f9}
@@ -115,6 +125,23 @@
   .rules{font-size:11.5px;color:#334155;line-height:1.5;margin-top:6px}
   .rules code{background:#f1f5f9;border-radius:3px;padding:0 3px}
   .hint{font-size:11.5px;color:var(--muted);margin-top:6px;line-height:1.5}
+  /* status banner (was the in-canvas RUNNING/COMPLETE box) */
+  .statusbox{display:flex;align-items:center;gap:10px;margin-top:4px;padding:8px 10px;
+             border:1.6px solid #94a3b8;border-radius:9px;background:#f1f5f9}
+  .statusbox.done{border-color:#16a34a;background:#dcfce7}
+  .statusbox .db-ic{width:26px;height:26px;flex:none;border-radius:50%;display:flex;
+                    align-items:center;justify-content:center;font-size:15px;font-weight:800;color:#fff}
+  .statusbox .db-ic.run{background:#94a3b8}
+  .statusbox .db-ic.ok{background:#16a34a}
+  .statusbox .db-title{font-size:14px;font-weight:800;color:#475569;line-height:1.15}
+  .statusbox.done .db-title{color:#15803d}
+  .statusbox .db-sub{font-size:11px;color:#64748b}
+  .statusbox.done .db-sub{color:#166534}
+  /* legend (was the in-canvas swatch grid) */
+  .legendbox{display:grid;grid-template-columns:1fr 1fr;gap:4px 8px;margin-top:10px}
+  .legendbox .lg{display:flex;align-items:center;gap:6px;font-size:10.5px;color:#475569;line-height:1.2}
+  .legendbox .sw{width:11px;height:11px;flex:none;border:1.4px solid;border-radius:3px}
+  .legendbox .sw.round{border-radius:50%}
   details summary{cursor:pointer;font-size:12.5px;color:var(--muted);outline:none}
 </style>
 </head>
@@ -133,36 +160,40 @@
     <input type="range" id="nRange" min="3" max="24" value="10">
 
     <label class="row" style="margin-top:10px"><span>Topology</span></label>
-    <select id="topoSel">
-      <option value="chain">Chain</option>
-      <option value="cycle">Cycle</option>
-      <option value="grid">Grid</option>
-      <option value="tree">Random tree</option>
-      <option value="random" selected>Random graph</option>
-    </select>
+    <div class="topo-row" id="topoRow">
+      <button data-topo="chain"><span class="ic">&#128279;</span><span class="lbl">Chain</span></button>
+      <button data-topo="ring"><span class="ic">&#9711;</span><span class="lbl">Ring</span></button>
+      <button data-topo="grid"><span class="ic">&#9638;</span><span class="lbl">Grid</span></button>
+      <button data-topo="tree"><span class="ic">&#127794;</span><span class="lbl">Tree</span></button>
+      <button data-topo="random" class="sel"><span class="ic">&#127922;</span><span class="lbl">Random</span></button>
+      <button data-topo="full"><span class="ic">&#11042;</span><span class="lbl">Full</span></button>
+    </div>
 
+    <div style="display:none">
     <label class="row" style="margin-top:10px"><span>Edge density</span><b id="densVal">100%</b></label>
     <input type="range" id="densRange" min="0" max="100" step="5" value="100">
+    </div>
 
     <label class="row" style="margin-top:10px"><span>Initial configuration</span></label>
     <select id="initSel">
-      <option value="reset">All reset (&perp;, false, 0) &rarr; watch BFS grow</option>
-      <option value="ideal">Ideal ranks (dist mod 3), b=0</option>
-      <option value="randomRank">Random ranks</option>
-      <option value="randomAll" selected>Fully random (incl. &top;)</option>
+      <option value="reset">All reset</option>
+      <option value="ideal">Ideal ranks</option>
+      <option value="randomRank" selected>Random ranks</option>
+      <option value="randomAll">Random error</option>
     </select>
 
     <div class="sep"></div>
 
     <label class="row"><span>Time per step</span><b id="spVal">800 ms</b></label>
-    <input type="range" id="spRange" min="150" max="2000" step="50" value="800">
+    <input type="range" id="spRange" min="0" max="2000" step="50" value="800">
 
     <div class="ctrl-row">
+      <button id="btnPrev"><span class="ic">&#9198;</span><span class="lbl">Prev</span></button>
       <button class="primary" id="btnPlay"><span class="ic">&#9654;</span><span class="lbl">Play</span></button>
-      <button id="btnStep"><span class="ic">&#9197;</span><span class="lbl">Step</span></button>
-      <button id="btnReset"><span class="ic">&#8634;</span><span class="lbl">Reset</span></button>
-      <button id="btnNew"><span class="ic">&#127922;</span><span class="lbl">Random</span></button>
+      <button id="btnStep"><span class="ic">&#9197;</span><span class="lbl">Next</span></button>
     </div>
+
+    <label class="chk" style="margin-top:9px"><input type="checkbox" id="cTags" checked><span>Show text tags</span></label>
 
     <!-- Display options default to on; kept as (hidden) state holders so the
          simulation still reads app.showOffers / showMsgContent / showBfs. -->
@@ -171,9 +202,18 @@
     <div class="chk" style="display:none"><input type="checkbox" id="cBfs" checked><label for="cBfs">Highlight BFS parent edges</label></div>
 
     <div class="sep"></div>
-    <div class="stat"><span>Edges</span><b id="statEdges">&mdash;</b></div>
-    <div class="stat"><span>Average degree</span><b id="statDeg">&mdash;</b></div>
-    <div class="stat"><span>Max distance from root</span><b id="statEcc">&mdash;</b></div>
+    <div id="statsHolder" style="display:none">
+      <span id="statEdges"></span><span id="statDeg"></span><span id="statEcc"></span>
+    </div>
+
+    <div class="statusbox" id="statusBox">
+      <div class="db-ic run" id="statusIcon">&#9696;</div>
+      <div>
+        <div class="db-title" id="statusTitle">RUNNING</div>
+        <div class="db-sub" id="statusSub">Step 0</div>
+      </div>
+    </div>
+    <div class="legendbox" id="legendBox"></div>
 
     <details style="margin-top:10px">
       <summary>Rule cheat-sheet</summary>
@@ -202,16 +242,8 @@
   <!-- ============================ Middle: graph ============================ -->
   <section class="card" id="stagewrap">
     <h2>Network state <span id="stepLabel" style="float:right;color:#0f172a;font-weight:700">Step 0</span></h2>
-    <div id="stage-legend">
-      <span><i style="background:#dbeafe;border:2px solid var(--rk0)"></i>rk=0</span>
-      <span><i style="background:#dcfce7;border:2px solid var(--rk1)"></i>rk=1</span>
-      <span><i style="background:#ffedd5;border:2px solid var(--rk2)"></i>rk=2</span>
-      <span><i style="background:#e5e7eb;border:2px solid var(--bot)"></i>rk=&perp; / RESET</span>
-      <span><i style="background:#fee2e2;border:2px solid var(--err)"></i>b=&top; / ERROR</span>
-      <span><i style="background:#facc15;border:1px solid #a16207;border-radius:50%"></i>TOKEN held</span>
-    </div>
     <svg id="graph" viewBox="0 0 820 540" preserveAspectRatio="xMidYMid meet"></svg>
-    <div class="hint" id="explain">Press &ldquo;Step&rdquo; or &ldquo;Play&rdquo; to watch how the triple (rk, t, b) changes on every node.</div>
+    <div class="hint" id="explain" style="display:none">Press &ldquo;Step&rdquo; or &ldquo;Play&rdquo; to watch how the triple (rk, t, b) changes on every node.</div>
   </section>
 
   <!-- ============================ Right: variables + log ============================ -->
@@ -219,7 +251,7 @@
     <h2>Local variables</h2>
     <div class="tblwrap">
       <table id="varTable">
-        <thead><tr><th>node</th><th>rk</th><th>t</th><th>b</th><th>Reset?</th></tr></thead>
+        <thead><tr><th>node</th><th>rk</th><th>t</th><th>b</th><th>binary</th></tr></thead>
         <tbody></tbody>
       </table>
     </div>
@@ -250,10 +282,10 @@ function setPlayLabel(icon,text){
 }
 
 const app={
-  N:10, topology:'random', initMode:'randomAll', stepMs:800, density:100,
-  playing:false, busy:false, step:0,
-  showOffers:true, showMsgContent:true, showBfs:true,
-  G:null, svg:null, edgeLayer:null, msgLayer:null, nodeLayer:null, doneLayer:null
+  N:10, topology:'random', initMode:'randomRank', stepMs:800, density:100,
+  playing:false, busy:false, step:0, hist:[],
+  showOffers:true, showMsgContent:true, showBfs:true, showTags:true,
+  G:null, svg:null, edgeLayer:null, portLayer:null, msgLayer:null, nodeLayer:null, doneLayer:null, legendLayer:null
 };
 
 /* ---------- Labels ---------- */
@@ -274,8 +306,10 @@ function buildGraph(){
   const t=app.topology, ed=G.edges;
 
   if(t==='chain'){ for(let i=0;i+1<N;i++) ed.push([i,i+1]); }
-  else if(t==='cycle'){
-    for(let i=0;i<N;i++){ const j=(i+1)%N; if(i<j) ed.push([i,j]); }
+  else if(t==='ring'){
+    // true ring: 0-1-2-...-(N-1) plus the closing edge (N-1)-0
+    for(let i=0;i+1<N;i++) ed.push([i,i+1]);
+    if(N>2) ed.push([0,N-1]);
     if(N===2){ ed.length=0; ed.push([0,1]); }
   }
   else if(t==='grid'){
@@ -285,6 +319,10 @@ function buildGraph(){
     }
   }
   else if(t==='tree'){ for(let i=1;i<N;i++) ed.push([i,rnd(i)]); }
+  else if(t==='full'){
+    // complete graph K_N
+    for(let i=0;i<N;i++) for(let j=i+1;j<N;j++) ed.push([i,j]);
+  }
   else { // random
     for(let i=1;i<N;i++) ed.push([i,rnd(i)]);
     let extra=Math.round(N*0.25), guard=0;
@@ -295,6 +333,17 @@ function buildGraph(){
 
   G.adj=Array.from({length:N},()=>[]);
   for(const [a,b] of ed){ G.adj[a].push(G.nodes[b]); G.adj[b].push(G.nodes[a]); }
+
+  // Local, immutable, uncoordinated port numbers (paper, model section): each
+  // node numbers its own incident edges 1..deg(v), and the edge (u,v) may carry
+  // different numbers at its two ends.  Because node ids are anonymous, this is
+  // exactly what breaks the tie when a node has several parents.
+  for(let i=0;i<N;i++){
+    const order=G.adj[i].map(u=>u.id);
+    for(let k=order.length-1;k>0;k--){ const j=rnd(k+1); const tmp=order[k]; order[k]=order[j]; order[j]=tmp; }
+    const p={}; order.forEach((id,k)=>{ p[id]=k+1; });
+    G.nodes[i].port=p;
+  }
 
   // BFS distances (used only for layout and the "ideal rank" initial configuration)
   const d=Array(N).fill(Infinity); d[0]=0; const q=[0];
@@ -314,7 +363,11 @@ function buildGraph(){
 function applyDensity(G){
   const N=G.nodes.length;
   const pct=Math.max(0,Math.min(100, app.density));
-  if(pct>=100){ G.densityInfo={kept:G.edges.length, dropped:0, total:G.edges.length}; return; }
+  if(pct>=100 || G.topology==='ring'){
+    // a ring must stay a real ring: the closing edge is never a tree edge,
+    // so density reduction would break the ring
+    G.densityInfo={kept:G.edges.length, dropped:0, total:G.edges.length}; return;
+  }
 
   // 1. BFS spanning tree from the root over the full skeleton -> mandatory edges.
   const cand=new Map();                        // "a-b" -> [a,b]
@@ -347,7 +400,7 @@ function applyDensity(G){
 
 function layout(G){
   const N=G.nodes.length, W=TOTW, H=TOTH;
-  const padX=64, padT=96, padB=58;   // extra top room for ERROR/TOKEN tags + banner
+  const padX=46, padT=30, padB=36;   // banner + legend now live outside the canvas
   const innerW=W-2*padX, innerH=H-padT-padB;
   const t=G.topology;
   if(t==='chain'){
@@ -361,15 +414,48 @@ function layout(G){
     G.radius = (rows===1) ? Math.max(13, Math.min(22, innerW/Math.max(1,N-1)*0.34)) : 19;
   } else if(t==='grid'){
     const cols=Math.ceil(Math.sqrt(N)), rows=Math.ceil(N/cols);
+    // extra side padding: the (rk, t, b) pill hangs off each node's bottom-right corner
+    const side=padX+48, gw=W-2*side;
     for(let i=0;i<N;i++){
       const r=Math.floor(i/cols), c=i%cols, v=G.nodes[i];
-      v.x = (cols===1)? W/2 : padX + innerW*c/(cols-1);
+      v.x = (cols===1)? W/2 : side + gw*c/(cols-1);
       v.y = (rows===1)? H/2 : padT + innerH*r/(rows-1);
     }
     G.radius=20;
+  } else if(t==='tree'){
+    // Layered layout: row 0 holds the root, row d holds the nodes at BFS depth d.
+    const byDepth=[];
+    for(const v of G.nodes){
+      const d=(v.dist===Infinity?0:v.dist);
+      (byDepth[d]=byDepth[d]||[]).push(v);
+    }
+    // Parent id = neighbour one level up with the smallest id (root has none).
+    const pid=v=>{
+      if(v.isRoot) return -1;
+      let best=-1;
+      for(const u of G.adj[v.id]) if(u.dist===v.dist-1 && (best<0||u.id<best)) best=u.id;
+      return best;
+    };
+    // Inside every row, order left-to-right by parent number, then by own number.
+    byDepth.forEach(row=>row.sort((a,b)=>(pid(a)-pid(b))||(a.id-b.id)));
+    const rows=byDepth.length;
+    const rowGap = rows>1 ? innerH/(rows-1) : 0;
+    byDepth.forEach((row,d)=>{
+      const n=row.length;
+      row.forEach((v,k)=>{
+        v.x = (n===1)? W/2 : padX + innerW*(k+0.5)/n;
+        v.y = (rows===1)? H/2 : padT + rowGap*d;
+      });
+    });
+    const maxRow=Math.max(1,...byDepth.map(r=>r.length));
+    G.radius = Math.max(12, Math.min(20, innerW/maxRow*0.32, rows>1?rowGap*0.42:20));
   } else {
-    const order=[...G.nodes].sort((a,b)=>(a.dist-b.dist)||(a.id-b.id)).map(v=>v.id);
-    const cx=W/2, cy=padT+innerH/2, R=Math.min(innerW,innerH)/2+6;
+    // Ring layouts (ring, fully connected, random graph) follow id order
+    // 0-1-2-...-(N-1); the radial layouts group by BFS distance.
+    const order = (t==='ring' || t==='full' || t==='random')
+      ? G.nodes.map(v=>v.id)
+      : [...G.nodes].sort((a,b)=>(a.dist-b.dist)||(a.id-b.id)).map(v=>v.id);
+    const cx=W/2, cy=padT+innerH/2, R=Math.min(innerW,innerH)/2;
     order.forEach((id,k)=>{ const a=-Math.PI/2 + 2*Math.PI*k/N; G.nodes[id].x=cx+R*Math.cos(a); G.nodes[id].y=cy+R*Math.sin(a); });
     G.radius=Math.max(14, Math.min(22, R*Math.sin(Math.PI/N)*0.85));
   }
@@ -383,6 +469,14 @@ function parents(G,v){ if(v.rk===RBOT) return []; return G.adj[v.id].filter(u=> 
 function children(G,v){ if(v.rk===RBOT) return []; return G.adj[v.id].filter(u=> u.rk!==RBOT && u.rk===((v.rk+1)%3)); }
 function siblings(G,v){ if(v.rk===RBOT) return []; return G.adj[v.id].filter(u=> u.rk!==RBOT && u.rk===v.rk); }
 function Tok(G,v){ return G.adj[v.id].filter(u=> u.t===T_TRUE && u.b===1); }
+/* BFS parent of v: among the neighbours one rank level below (parents(G,v)), the
+   paper takes the smallest port number, computed on the fly and never stored. */
+function parentOf(G,v){
+  if(v.isRoot || v.rk===RBOT) return null;
+  let best=null, bp=Infinity;
+  for(const u of parents(G,v)){ const p=v.port[u.id]; if(p<bp){ bp=p; best=u; } }
+  return best;
+}
 function sameSet(a,b){ if(a.length!==b.length) return false; const s=new Set(a.map(x=>x.id)); return b.every(x=>s.has(x.id)); }
 function TakeP(G,v){ const T=Tok(G,v); if(!T.length) return false; return sameSet(T, parents(G,v)); }
 function TakeO(G,v){ const T=Tok(G,v); if(!T.length) return false; return !sameSet(T, parents(G,v)); }
@@ -514,6 +608,15 @@ function applyNext(G,next){
   for(const v of G.nodes){ const s=next.get(v.id); v.rk=s.rk; v.t=s.t; v.b=s.b; }
 }
 
+/* Snapshot / restore of the whole run (node triples + step counter + event log),
+   used by the "Prev" button: every step is stored, so Prev can be pressed
+   repeatedly until the very first configuration. */
+function snapshot(G){
+  return { st:G.nodes.map(v=>[v.rk,v.t,v.b]), step:app.step,
+           log:(document.getElementById('log')||{}).innerHTML||'' };
+}
+function restore(G,snap){ G.nodes.forEach((v,i)=>{ v.rk=snap.st[i][0]; v.t=snap.st[i][1]; v.b=snap.st[i][2]; }); }
+
 /* ---------------------------------------------------------------------
    Completion test: every node carries its BFS level (rk = dist mod 3),
    no node is dormant (rk=perp) and no node is signalling an error (b=top).
@@ -534,10 +637,12 @@ function drawGraph(){
   svg.innerHTML='';
   svg.setAttribute('viewBox',`0 0 ${TOTW} ${TOTH}`);
   app.edgeLayer=document.createElementNS(SVGNS,'g'); svg.appendChild(app.edgeLayer);
+  app.portLayer=document.createElementNS(SVGNS,'g'); svg.appendChild(app.portLayer);
   app.msgLayer =document.createElementNS(SVGNS,'g'); svg.appendChild(app.msgLayer);
   app.nodeLayer=document.createElementNS(SVGNS,'g'); svg.appendChild(app.nodeLayer);
   app.doneLayer=document.createElementNS(SVGNS,'g'); svg.appendChild(app.doneLayer);
   app.doneLayer.setAttribute('style','pointer-events:none');
+  app.legendLayer=null;   // legend now lives in the left panel as HTML
 
   // Ghost edges removed by the density slider, so the "missing" links stay visible.
   if(G.droppedEdges){
@@ -555,12 +660,31 @@ function drawGraph(){
 
   G.edgeEls=[];
   for(const [a,b] of G.edges){
+    const na=G.nodes[a], nb=G.nodes[b];
     const l=document.createElementNS(SVGNS,'line');
-    l.setAttribute('x1',G.nodes[a].x); l.setAttribute('y1',G.nodes[a].y);
-    l.setAttribute('x2',G.nodes[b].x); l.setAttribute('y2',G.nodes[b].y);
+    l.setAttribute('x1',na.x); l.setAttribute('y1',na.y);
+    l.setAttribute('x2',nb.x); l.setAttribute('y2',nb.y);
     l.setAttribute('class','edge');
     app.edgeLayer.appendChild(l);
-    G.edgeEls.push({el:l,a,b});
+
+    // Arrowhead shown only when this edge is the selected parent link; the tip
+    // sits on the parent's border and points at the parent (child -> parent).
+    const arrow=document.createElementNS(SVGNS,'path');
+    arrow.setAttribute('d','M 0 0 L -16 -8.4 L -16 8.4 Z');
+    arrow.setAttribute('fill','#0d9488');
+    arrow.style.display='none';
+    app.edgeLayer.appendChild(arrow);
+
+    // Local port number each end uses for the other (1..deg, uncoordinated).
+    const mkPort=(from,to)=>{
+      const t=document.createElementNS(SVGNS,'text');
+      t.setAttribute('class','port');
+      t.textContent=from.port[to.id];
+      app.portLayer.appendChild(t);
+      return t;
+    };
+    const pA=mkPort(na,nb), pB=mkPort(nb,na);
+    G.edgeEls.push({el:l,arrow,pA,pB,a,b});
   }
 
   const R=G.radius;
@@ -571,15 +695,16 @@ function drawGraph(){
     const c=document.createElementNS(SVGNS,'circle');
     c.setAttribute('cx',v.x); c.setAttribute('cy',v.y); c.setAttribute('r',R); c.setAttribute('class','node');
 
-    // (rk, t, b) read-out below the node, on an opaque white background
+    // (rk, t, b) read-out, on an opaque white background; placement depends on layout
     const txt=`(${rkLabel(v)}, ${tShort(v)}, ${bLabel(v)})`;
     const bw=Math.max(38, txt.length*6.35+9), bh=15;
+    const pl=infoPlacement(v,R,bw);
     const box=document.createElementNS(SVGNS,'rect');
-    box.setAttribute('x',v.x-bw/2); box.setAttribute('y',v.y+R+4);
+    box.setAttribute('x',pl.bx); box.setAttribute('y',pl.by);
     box.setAttribute('width',bw); box.setAttribute('height',bh); box.setAttribute('rx',4);
     box.setAttribute('class','info-box');
     const info=document.createElementNS(SVGNS,'text');
-    info.setAttribute('x',v.x); info.setAttribute('y',v.y+R+4+11); info.setAttribute('class','node-info');
+    info.setAttribute('x',pl.tx); info.setAttribute('y',pl.ty); info.setAttribute('class','node-info');
     info.textContent=txt;
 
     // top-centre status tag: red ERROR (b = top) or grey RESET (Reset(v))
@@ -616,51 +741,76 @@ function drawGraph(){
   updateView();
 }
 
-/* --------- Status banner, always shown in the top-left of the canvas --------- */
+/* ---------------------------------------------------------------------
+   Where the (rk, t, b) read-out sits, by layout shape:
+     chain  -> straight below the node
+     grid   -> 45 deg bottom-right (flipped near the canvas edges to stay in view)
+     radial -> nodes on the left half of the canvas put it on their left,
+               nodes on the right half put it on their right
+   Returns the rect's top-left corner plus the text anchor point.
+   --------------------------------------------------------------------- */
+function infoPlacement(v,R,bw){
+  const bh=15, t=app.topology;
+  if(t==='chain'){
+    const y=v.y+R+6;
+    return {bx:v.x-bw/2, by:y, tx:v.x, ty:y+11};
+  }
+  if(t==='grid'){
+    // corner of the box pinned on the 45 deg diagonal, just clear of the circle
+    const k=(R+8)*Math.SQRT1_2;
+    const bx=v.x+k, by=v.y+k;
+    return {bx, by, tx:bx+bw/2, ty:by+11};
+  }
+  // radial layouts (cycle, random tree, random graph)
+  const bh2=bh/2;
+  if(Math.abs(v.x-TOTW/2) < bh2+2){          // sits on the vertical centre line
+    const y=(v.y < TOTH/2) ? v.y-R-8-bh : v.y+R+8;
+    return {bx:v.x-bw/2, by:y, tx:v.x, ty:y+11};
+  }
+  const d=R+7;
+  if(v.x < TOTW/2) return {bx:v.x-d-bw, by:v.y-bh/2, tx:v.x-d-bw/2, ty:v.y+4};
+  return {bx:v.x+d, by:v.y-bh/2, tx:v.x+d+bw/2, ty:v.y+4};
+}
+
+/* --------- Legend: rendered as HTML in the left panel (out of the canvas) --------- */
+const LEGEND=[
+  {bg:'#dbeafe',bd:'#2563eb', bw:1.4, r:2.5, txt:'rk=0'},
+  {bg:'#dcfce7',bd:'#16a34a', bw:1.4, r:2.5, txt:'rk=1'},
+  {bg:'#ffedd5',bd:'#ea580c', bw:1.4, r:2.5, txt:'rk=2'},
+  {bg:'#e5e7eb',bd:'#6b7280', bw:1.4, r:2.5, txt:'rk=\u22A5 / RESET'},
+  {bg:'#fee2e2',bd:'#dc2626', bw:1.4, r:2.5, txt:'b=\u22A4 / ERROR'},
+  {bg:'#facc15',bd:'#a16207', bw:1,   r:6,   txt:'TOKEN held'}
+];
+function drawLegend(){
+  const L=document.getElementById('legendBox');
+  if(!L) return;
+  L.innerHTML='';
+  LEGEND.forEach(it=>{
+    const row=document.createElement('div'); row.className='lg';
+    const sw=document.createElement('span'); sw.className='sw'+(it.r>4?' round':'');
+    sw.style.background=it.bg; sw.style.borderColor=it.bd;
+    const tx=document.createElement('span'); tx.textContent=it.txt;
+    row.append(sw,tx); L.appendChild(row);
+  });
+}
+
+/* --------- Status banner, shown in the left panel (out of the canvas) --------- */
 function renderDoneBanner(){
   const G=app.G;
   app.doneLayer.innerHTML='';
+  const box=document.getElementById('statusBox');
+  const ic=document.getElementById('statusIcon');
+  const title=document.getElementById('statusTitle');
+  const sub=document.getElementById('statusSub');
+  if(!box) return;
   const done=!!G.done;
-  const w=214, h=54, x=14, y=12;
-  const rect=document.createElementNS(SVGNS,'rect');
-  rect.setAttribute('x',x); rect.setAttribute('y',y); rect.setAttribute('width',w); rect.setAttribute('height',h);
-  rect.setAttribute('rx',9); rect.setAttribute('class','done-box'+(done?' done':''));
-
-  const cx=x+24, cy=y+h/2;
-  if(done){
-    // tick inside a green circle
-    const circ=document.createElementNS(SVGNS,'circle');
-    circ.setAttribute('cx',cx); circ.setAttribute('cy',cy); circ.setAttribute('r',13);
-    circ.setAttribute('fill','#16a34a');
-    const tick=document.createElementNS(SVGNS,'path');
-    tick.setAttribute('d',`M ${cx-6.4} ${cy+0.4} L ${cx-2.1} ${cy+4.6} L ${cx+6.6} ${cy-4.8}`);
-    tick.setAttribute('fill','none'); tick.setAttribute('stroke','#ffffff');
-    tick.setAttribute('stroke-width','3'); tick.setAttribute('stroke-linecap','round');
-    tick.setAttribute('stroke-linejoin','round');
-    app.doneLayer.append(rect,circ,tick);
-  }else{
-    // grey rotating-arc (progress) glyph
-    const arc=document.createElementNS(SVGNS,'circle');
-    arc.setAttribute('cx',cx); arc.setAttribute('cy',cy); arc.setAttribute('r',11);
-    arc.setAttribute('fill','none'); arc.setAttribute('stroke','#94a3b8');
-    arc.setAttribute('stroke-width','3.2'); arc.setAttribute('stroke-linecap','round');
-    arc.setAttribute('stroke-dasharray','17 52');
-    const hub=document.createElementNS(SVGNS,'circle');
-    hub.setAttribute('cx',cx); hub.setAttribute('cy',cy); hub.setAttribute('r',3.4);
-    hub.setAttribute('fill','#94a3b8');
-    app.doneLayer.append(rect,arc,hub);
-  }
-
-  const title=document.createElementNS(SVGNS,'text');
-  title.setAttribute('x',x+44); title.setAttribute('y',y+23); title.setAttribute('class','done-title'+(done?' done':''));
+  box.classList.toggle('done',done);
+  ic.className='db-ic '+(done?'ok':'run');
+  ic.textContent = done ? '\u2713' : '\u25D6';
   title.textContent = done ? 'COMPLETE' : 'RUNNING';
-  const sub=document.createElementNS(SVGNS,'text');
-  sub.setAttribute('x',x+44); sub.setAttribute('y',y+41); sub.setAttribute('class','done-sub'+(done?' done':''));
   sub.textContent = done
     ? `BFS\u22613 built at step ${G.doneStep ?? app.step}`
     : `Step ${app.step} \u00B7 BFS\u22613 not stable yet`;
-
-  app.doneLayer.append(title,sub);
 }
 
 function updateView(){
@@ -676,29 +826,64 @@ function updateView(){
     const txt=`(${rkLabel(v)}, ${tShort(v)}, ${bLabel(v)})`;
     e.info.textContent=txt;
     const bw=Math.max(38, txt.length*6.35+9);
-    e.box.setAttribute('x', v.x-bw/2);
+    const pl=infoPlacement(v,e.R,bw);
+    e.box.setAttribute('x', pl.bx);
+    e.box.setAttribute('y', pl.by);
     e.box.setAttribute('width', bw);
+    e.info.setAttribute('x', pl.tx);
+    e.info.setAttribute('y', pl.ty);
 
     const isErr = v.b===BTOP;
     const isReset = Reset(v);
     const R=e.R;
+    // Global tag toggle: hide the (rk, t, b) read-out and the ERROR / RESET badges.
+    const tags=app.showTags;
+    e.box.style.display  = tags ? '' : 'none';
+    e.info.style.display = tags ? '' : 'none';
     // ERROR / RESET share the single slot centred above the node.
-    e.errTag.gg.style.display = isErr ? '' : 'none';
-    e.resetTag.gg.style.display = (!isErr && isReset) ? '' : 'none';
+    e.errTag.gg.style.display = (tags && isErr) ? '' : 'none';
+    e.resetTag.gg.style.display = (tags && !isErr && isReset) ? '' : 'none';
     const shown = isErr ? e.errTag : e.resetTag;
-    if (isErr || isReset) shown.gg.setAttribute('transform',`translate(${v.x-shown.w/2},${v.y-R-14})`);
+    if (tags && (isErr || isReset)) shown.gg.setAttribute('transform',`translate(${v.x-shown.w/2},${v.y-R-14})`);
     // Yellow dot at the node's top-right corner = holds the token.
     e.tok.style.display = (v.t===T_TRUE) ? '' : 'none';
   }
-  for(const {el,a,b} of G.edgeEls){
-    const na=G.nodes[a], nbb=G.nodes[b];
-    let cls='edge';
-    if(app.showBfs && na.rk!==RBOT && nbb.rk!==RBOT){
-      const parent = (nbb.rk===(na.rk+1)%3) || (na.rk===(nbb.rk+1)%3);
-      const sib    = (na.rk===nbb.rk);
-      if(parent) cls+=' parent'; else if(sib) cls+=' sib';
+  for(const {el,arrow,pA,pB,a,b} of G.edgeEls){
+    const na=G.nodes[a], nb=G.nodes[b];
+    const R=G.radius;
+    let cls='edge', tree=null;
+    if(app.showBfs && na.rk!==RBOT && nb.rk!==RBOT && na.rk!==nb.rk){
+      // rank-adjacent: exactly one of the two could be the other's parent.
+      // The paper breaks ties by the *child's* port number, so a node with
+      // several parents draws the arrow on the smallest-port one only.
+      if(nb.rk===(na.rk+2)%3 && parentOf(G,na)===nb) tree={child:na,parent:nb};
+      else if(na.rk===(nb.rk+2)%3 && parentOf(G,nb)===na) tree={child:nb,parent:na};
+      if(tree) cls+=' parent'; else cls+=' cross';
+    } else if(app.showBfs && na.rk===nb.rk && na.rk!==RBOT){
+      cls+=' sib';
     }
     el.setAttribute('class',cls);
+
+    if(tree){
+      const c=tree.child, p=tree.parent;
+      const dx=p.x-c.x, dy=p.y-c.y, len=Math.hypot(dx,dy)||1;
+      const ux=dx/len, uy=dy/len;
+      arrow.setAttribute('transform',
+        `translate(${p.x-ux*(R+2.5)},${p.y-uy*(R+2.5)}) rotate(${Math.atan2(uy,ux)*180/Math.PI})`);
+      arrow.style.display='';
+    } else arrow.style.display='none';
+
+    // port labels: just outside each endpoint, nudged sideways off the wire
+    const place=(t,from,to,val)=>{
+      const dx=to.x-from.x, dy=to.y-from.y, len=Math.hypot(dx,dy)||1;
+      const ux=dx/len, uy=dy/len;
+      t.setAttribute('x', from.x+ux*(R+7)-uy*5.2);
+      t.setAttribute('y', from.y+uy*(R+7)+ux*5.2+3);
+      t.style.display = (from.rk===RBOT) ? 'none' : '';
+    };
+    place(pA,na,nb); place(pB,nb,na);
+    pA.classList.toggle('hi', !!tree && tree.child===na);
+    pB.classList.toggle('hi', !!tree && tree.child===nb);
   }
   renderDoneBanner();
 }
@@ -739,6 +924,43 @@ async function animateMessages(msgs,dur){
   });
 }
 
+/* --------- Node state-change animation ---------
+   Steps that only rewrite node states (e.g. a wave of ERROR -> RESET) send no
+   token at all, so they would flash by instantly. This pulse keeps every step
+   the same visual length as a message step.                                   */
+function changeColor(v,s){
+  if(s.b===BTOP) return '#dc2626';                       // becoming / still error
+  if(s.rk===RBOT && s.t===T_FALSE && s.b===0) return '#9ca3af';   // entering RESET
+  if(v.b===BTOP) return '#0d9488';                       // clearing an error
+  return '#64748b';
+}
+async function animateNodeChanges(items,dur){
+  if(!items.length) return;
+  const R=app.G.radius;
+  const els=items.map(it=>{
+    const c=document.createElementNS(SVGNS,'circle');
+    c.setAttribute('cx',it.v.x); c.setAttribute('cy',it.v.y);
+    c.setAttribute('fill','none'); c.setAttribute('stroke',it.col);
+    c.setAttribute('stroke-width',2.4); c.setAttribute('r',R+3);
+    c.setAttribute('opacity',0);
+    app.msgLayer.appendChild(c);
+    return c;
+  });
+  const t0=performance.now();
+  return new Promise(res=>{
+    (function frame(now){
+      const p=Math.min(1,(now-t0)/dur);
+      const wave=4*p*(1-p);                   // 0 -> 1 -> 0
+      els.forEach((c,i)=>{
+        c.setAttribute('r', R+3+wave*7);
+        c.setAttribute('opacity', wave*0.95);
+      });
+      if(p<1) requestAnimationFrame(frame);
+      else { els.forEach(c=>c.remove()); res(); }
+    })(t0);
+  });
+}
+
 /* =====================================================================
    Executing one "step" (with animation)
    ===================================================================== */
@@ -748,10 +970,29 @@ async function doStep(){
   const G=app.G;
   const {next,nodeRules,rootInfo,messages}=computeStep(G);
 
+  // Push the *pre-step* snapshot first, so "Prev" can be pressed repeatedly all
+  // the way back to the initial configuration (step 0).
+  app.hist.push(snapshot(G));
+
   const visMsg = messages.filter(m=> app.showOffers || m.outcome!=='ignored');
-  const dur=Math.max(150, app.stepMs*0.62);
-  await animateMessages(visMsg, dur);
-  if(visMsg.length===0) await sleep(Math.min(220, app.stepMs*0.25));
+  // 0 ms means "no animation": apply the whole step instantly, no wall-clock gap.
+  const noAnim = app.stepMs<=0;
+  const dur = noAnim ? 0 : Math.max(50, app.stepMs*0.62);
+
+  // nodes whose local state is actually rewritten this step
+  const changed=[];
+  for(const v of G.nodes){
+    const s=next.get(v.id);
+    if(s.rk!==v.rk || s.t!==v.t || s.b!==v.b) changed.push({v,col:changeColor(v,s)});
+  }
+
+  // Safety net: if the tab is hidden the browser stops issuing requestAnimationFrame
+  // callbacks, so the animation promises would never settle and app.busy would stay
+  // true forever. Racing them against a wall-clock timer keeps stepping alive.
+  if(!noAnim) await Promise.race([
+    Promise.all([ animateMessages(visMsg,dur), animateNodeChanges(changed,dur) ]),
+    sleep(dur+400)
+  ]);
 
   applyNext(G,next);
   app.step++;
@@ -769,6 +1010,38 @@ async function doStep(){
 /* =====================================================================
    Right panel: variable table / log / explanation
    ===================================================================== */
+/* Manual editing: a click on the rk / t / b cell cycles that field to its next
+   possible value (rk: 0,1,2,⊥ / t: T,F,W / b: 0,1,⊤) and refreshes the whole
+   view immediately. */
+const RK_CYCLE=[0,1,2,RBOT];
+const T_CYCLE=[T_TRUE,T_FALSE,T_WAIT];
+const B_CYCLE=[0,1,BTOP];
+
+/* 2 bits per variable, concatenated rk|t|b -> a 6-bit word. The bit code is the
+   position of the current value in its cycle, so 0->00, 1->01, 2->10, third->11. */
+const twoBit=k=> k===0?'00' : k===1?'01' : k===2?'10' : '11';
+function binTriple(v){
+  return twoBit(RK_CYCLE.indexOf(v.rk)) + twoBit(T_CYCLE.indexOf(v.t)) + twoBit(B_CYCLE.indexOf(v.b));
+}
+
+function cycleVarCell(v,idx){
+  if(idx===1){ v.rk = RK_CYCLE[(RK_CYCLE.indexOf(v.rk)+1) % RK_CYCLE.length]; }
+  else if(idx===2){ v.t = T_CYCLE[(T_CYCLE.indexOf(v.t)+1) % T_CYCLE.length]; }
+  else if(idx===3){ v.b = B_CYCLE[(B_CYCLE.indexOf(v.b)+1) % B_CYCLE.length]; }
+  refreshAfterEdit();
+}
+
+function refreshAfterEdit(){
+  const G=app.G;
+  G.done=computeDone(G);
+  G.doneStep=app.step;
+  updateView();
+  renderTable(null);
+  renderStats();
+  syncDensityEnabled();
+  renderDoneBanner();
+}
+
 function renderTable(nodeRules){
   const tb=document.querySelector('#varTable tbody');
   tb.innerHTML='';
@@ -777,7 +1050,7 @@ function renderTable(nodeRules){
     const tr=document.createElement('tr');
     if(Reset(v)) tr.classList.add('reset');
     if(info&&info.rule) tr.classList.add('fired');
-    const cells=[v.name, rkLabel(v), tShort(v), bLabel(v), Reset(v)?'✓':'—'];
+    const cells=[v.name, rkLabel(v), tShort(v), bLabel(v), binTriple(v)];
     cells.forEach((txt,i)=>{
       const td=document.createElement('td');
       td.textContent=txt;
@@ -786,6 +1059,11 @@ function renderTable(nodeRules){
         const now=[v.rk,v.t,v.b][i-1];
         const was=[b.rk,b.t,b.b][i-1];
         if(i>=1 && i<=3 && now!==was) td.classList.add('chg');
+      }
+      if(i>=1 && i<=3){
+        td.style.cursor='pointer';
+        td.title='click to cycle value';
+        td.addEventListener('click', ()=>cycleVarCell(v,i));
       }
       tr.appendChild(td);
     });
@@ -901,6 +1179,7 @@ function resetState(){
   if(computeDone(G)){ G.done=true; G.doneStep=0; }   // e.g. the "ideal ranks" configuration
   document.getElementById('stepLabel').textContent='Step 0';
   document.getElementById('log').innerHTML='';
+  app.hist=[];
   updateView();
   renderTable(null);
   document.getElementById('explain').textContent='Step 0: initial configuration. Press \u201CStep\u201D or \u201CPlay\u201D to start.';
@@ -923,14 +1202,33 @@ function renderStats(){
    ===================================================================== */
 function setStepLabel(){ document.getElementById('stepLabel').textContent='Step '+app.step; }
 
+/* Undo one step: pop the newest stored snapshot and re-render.  Because the whole
+   run is kept in app.hist, this can be repeated back to step 0. */
+function prevStep(){
+  if(app.playing || app.busy) return;
+  if(!app.hist.length) return;
+  const snap=app.hist.pop();
+  restore(app.G,snap);
+  app.step=snap.step;
+  document.getElementById('log').innerHTML=snap.log;
+  app.G.done=false; app.G.doneStep=null;
+  setStepLabel();
+  updateView();
+  renderTable(null);
+  renderStats();
+  renderDoneBanner();
+}
+
 async function loop(){
   while(app.playing){
     await doStep();
-    await sleep(Math.max(60, app.stepMs*0.16));
+    // still yield once per step at 0 ms so the UI keeps painting
+    await sleep(app.stepMs>0 ? Math.max(60, app.stepMs*0.16) : 0);
   }
 }
 
 function newGraph(){
+  app.hist=[];
   app.G=buildGraph();
   drawGraph();
   renderStats();
@@ -952,21 +1250,29 @@ function syncDensityEnabled(){
    ===================================================================== */
 window.addEventListener('DOMContentLoaded',()=>{
   app.svg=document.getElementById('graph');
+  drawLegend();
 
   const nR=document.getElementById('nRange'), nV=document.getElementById('nVal');
   const spR=document.getElementById('spRange'), spV=document.getElementById('spVal');
   const dR=document.getElementById('densRange'), dV=document.getElementById('densVal');
 
   nR.addEventListener('input',()=>{ nV.textContent=nR.value; app.N=+nR.value; newGraph(); });
-  spR.addEventListener('input',()=>{ spV.textContent=spR.value+' ms'; app.stepMs=+spR.value; });
+  const spLabel=v=> v<=0 ? 'no animation' : v+' ms';
+  spR.addEventListener('input',()=>{ spV.textContent=spLabel(+spR.value); app.stepMs=+spR.value; });
   dR.addEventListener('input',()=>{ dV.textContent=dR.value+'%'; app.density=+dR.value; newGraph(); });
 
-  document.getElementById('topoSel').addEventListener('change',e=>{ app.topology=e.target.value; newGraph(); syncDensityEnabled(); });
+  const topoBtns=[...document.querySelectorAll('#topoRow button')];
+  topoBtns.forEach(b=>b.addEventListener('click',()=>{
+    app.topology=b.dataset.topo;
+    topoBtns.forEach(x=>x.classList.toggle('sel', x===b));
+    newGraph(); syncDensityEnabled();
+  }));
   document.getElementById('initSel').addEventListener('change',e=>{ app.initMode=e.target.value; resetState(); });
 
   document.getElementById('cOffers').addEventListener('change',e=>{ app.showOffers=e.target.checked; });
   document.getElementById('cMsg').addEventListener('change',e=>{ app.showMsgContent=e.target.checked; });
   document.getElementById('cBfs').addEventListener('change',e=>{ app.showBfs=e.target.checked; updateView(); });
+  document.getElementById('cTags').addEventListener('change',e=>{ app.showTags=e.target.checked; updateView(); });
 
   const btnPlay=document.getElementById('btnPlay');
   btnPlay.addEventListener('click',()=>{
@@ -979,20 +1285,20 @@ window.addEventListener('DOMContentLoaded',()=>{
     if(app.playing) return;
     await doStep();
   });
-  document.getElementById('btnReset').addEventListener('click',()=>resetState());
-  document.getElementById('btnNew').addEventListener('click',()=>newGraph());
+  document.getElementById('btnPrev').addEventListener('click',()=>prevStep());
 
   document.addEventListener('keydown',e=>{
-    if(e.target.tagName==='SELECT'||e.target.tagName==='INPUT') return;
+    if(e.target.tagName==='SELECT'||e.target.tagName==='INPUT'||e.target.tagName==='BUTTON') return;
     if(e.code==='Space'){ e.preventDefault(); btnPlay.click(); }
     else if(e.code==='ArrowRight'){ e.preventDefault(); document.getElementById('btnStep').click(); }
+    else if(e.code==='ArrowLeft'){ e.preventDefault(); prevStep(); }
   });
 
   // Initialise
   nV.textContent=nR.value; app.N=+nR.value;
-  spV.textContent=spR.value+' ms'; app.stepMs=+spR.value;
+  spV.textContent=spLabel(+spR.value); app.stepMs=+spR.value;
   dV.textContent=dR.value+'%'; app.density=+dR.value;
-  app.topology=document.getElementById('topoSel').value;
+  app.topology=(topoBtns.find(b=>b.classList.contains('sel'))||topoBtns[0]).dataset.topo;
   app.initMode=document.getElementById('initSel').value;
   newGraph();
 });
