@@ -1,0 +1,966 @@
+\documentclass[aspectratio=169,11pt]{beamer}
+
+\usepackage[T1]{fontenc}
+\usepackage{graphicx}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{mathrsfs}
+\usepackage{tikz}
+\usepackage{listings}
+\usepackage{xcolor}
+\usetikzlibrary{arrows.meta,positioning,calc,fit,backgrounds}
+
+\usetheme{SEPOC2026}
+
+% ==========================================================================
+% Hide the theme's header / footer graphics.
+% The SEPOC2026 theme draws a banner in the headline and a sponsor logo bar
+% in the footline. Blanking the two templates removes those images; only a
+% minimal page number is kept in the footline.
+% NOTE: \usetheme must come BEFORE \logo{}, otherwise the theme overrides it.
+% ==========================================================================
+\setbeamertemplate{headline}{}
+\setbeamertemplate{footline}{%
+  \hfill\scriptsize\insertframenumber\,/\,\inserttotalframenumber\hspace*{2ex}\vspace*{1.2ex}%
+}
+\logo{}
+% If part of the banner is painted on the background layer, uncomment:
+% \setbeamertemplate{background canvas}{}
+% \setbeamertemplate{background}{}
+
+% --------------------------------------------------------------------------
+% Frame titles: keep the theme's title font, but pin the title 3mm from the
+% paper edge instead of the theme's wide left pad, and give it a light orange
+% accent (orange title text, no rule underneath).
+% To borrow the theme's own accent instead of this orange, replace
+% \color{tkaccent} by \usebeamercolor[fg]{structure} below.
+% Comment the whole block out to restore the original theme title style.
+% --------------------------------------------------------------------------
+\definecolor{tkaccent}{HTML}{E8730C}
+\makeatletter
+\setbeamertemplate{frametitle}{%
+  \vskip0.4ex%
+  \noindent\hspace*{\dimexpr 3mm-\beamer@leftmargin\relax}%
+  \hbox to \dimexpr\textwidth+\beamer@leftmargin-3mm\relax{%
+    \usebeamerfont{frametitle}\color{tkaccent}\insertframetitle\hfil}%
+  \vskip-0.2ex%
+}
+\makeatother
+
+% ============================================================ macros
+\newcommand{\Neig}{\mathcal{N}}
+\newcommand{\Pa}{\mathcal{P}}
+\newcommand{\Ch}{\mathcal{C}}
+\newcommand{\Si}{\mathcal{S}}
+\newcommand{\bz}{\mathbf{0}}
+\newcommand{\bo}{\mathbf{1}}
+\newcommand{\rk}{k}
+\newcommand{\Rer}{\ensuremath{\mathscr{R}_{er}}}
+\newcommand{\Rreset}{\ensuremath{\mathscr{R}_{reset}}}
+\newcommand{\RerRank}{\ensuremath{\mathscr{R}_{erRank}}}
+\newcommand{\Rjoin}{\ensuremath{\mathscr{R}_{join}}}
+\newcommand{\Rtok}{\ensuremath{\mathscr{R}_{tok}}}
+\newcommand{\Radd}{\ensuremath{\mathscr{R}_{add}}}
+\newcommand{\Rready}{\ensuremath{\mathscr{R}_{ready}}}
+\newcommand{\RerRoot}{\ensuremath{\mathscr{R}^{\,r}_{er}}}
+\newcommand{\Rgo}{\ensuremath{\mathscr{R}^{\,r}_{go}}}
+% Item number (n), shared by a formula and its matching graph. No bold;
+% the accent colour links the formula to its graph caption.
+\newcommand{\tknum}[1]{\textcolor{tkaccent}{(#1)}}
+
+% ============================================================ tikz styles
+\tikzset{
+  gnode/.style={circle,draw,thick,inner sep=0pt,minimum size=5.6mm,font=\scriptsize},
+  groot/.style={rectangle,draw,thick,inner sep=1pt,minimum size=5.6mm,font=\scriptsize},
+  rnode/.style={circle,draw,thick,dashed,inner sep=0pt,minimum size=5.6mm,font=\scriptsize},
+  gedge/.style={thick,draw=gray!70},
+  garr/.style={-{Stealth[length=1.7mm]},thick,draw=teal!80!black},
+  lbl/.style={font=\tiny,inner sep=1pt},
+  clbl/.style={font=\scriptsize,inner sep=1pt},
+  % --- compact cells of the token-flow figure (paper's Figure 2) ---
+  tcell/.style={circle,draw,inner sep=0pt,minimum size=7.6mm,%
+                font=\fontsize{4.6}{5.2}\selectfont},
+  tact/.style={tcell,fill=gray!45},
+  tdot/.style={circle,fill=black,inner sep=0pt,minimum size=1.4mm},
+  tlab/.style={font=\fontsize{5.2}{6.0}\selectfont,inner sep=0.5pt},
+  tarr/.style={-{Stealth[length=1.1mm]},draw=black!65,thick}
+}
+% Enlarged label font for the small explanatory graphs of the root slide.
+% Used as an option of a tikzpicture: [scale=...,transform shape,bigtext]
+\tikzset{bigtext/.style={%
+  gnode/.append style={font=\small},
+  groot/.append style={font=\small},
+  rnode/.append style={font=\small},
+  clbl/.append  style={font=\small}}}
+% --- annotated local-state tree of the "local variables" slide ---
+% Each circle shows \rk_v (or \top / \bot for the error / reset node);
+% the (k,t,b) triple of the node is written just to its right.
+\tikzset{
+  stnode/.style={circle,draw,thick,inner sep=0pt,minimum size=5.0mm,%
+                 font=\fontsize{5.2}{5.8}\selectfont},
+  stroot/.style={stnode,rectangle},
+  stlbl/.style={font=\fontsize{5.0}{6.0}\selectfont,inner sep=0.4pt,anchor=west},
+  stdead/.style={thick,dashed,draw=gray!65}
+}
+% --- twice the size of \lbl, for the rule labels of the state automaton ---
+\tikzset{rlbl/.style={font=\fontsize{12}{14}\selectfont,inner sep=1pt}}
+% ============================================================ JS listings
+\lstdefinestyle{js}{
+  language=Java,
+  basicstyle=\ttfamily\tiny,
+  keywordstyle=\color{blue!70!black}\bfseries,
+  commentstyle=\color{green!45!black}\itshape,
+  stringstyle=\color{red!60!black},
+  frame=single,
+  framesep=3pt,
+  rulecolor=\color{gray!45},
+  breaklines=true,
+  columns=fullflexible,
+  keepspaces=true,
+  showstringspaces=false,
+  aboveskip=2pt,
+  belowskip=2pt,
+  xleftmargin=2pt,
+  xrightmargin=2pt,
+  morekeywords={function,const,let,if,else,return,true,false,null,undefined}
+}
+\lstset{style=js}
+
+% Tighter variant used in the math || JavaScript frames: smaller font, no
+% extra space above/below the frame and no side margins, so the code column
+% can be widened and pushed up to the top of the slide.
+\lstdefinestyle{jsc}{
+  style=js,
+  basicstyle=\ttfamily\fontsize{5.1}{5.7}\selectfont,
+  aboveskip=0pt,
+  belowskip=0pt,
+  framesep=2pt,
+  xleftmargin=4mm,   % pushes the frame to the right, away from the math column
+  xrightmargin=0pt
+}
+
+% ============================================================ metadata
+\title[TokBin]{Deterministic Synchronous Self-Stabilizing BFS Construction with Constant Space Complexity}
+\subtitle{A rule-by-rule walk-through of \texttt{TokBin}}
+\author{L\'elia Blin \and Franck Petit \and S\'ebastien Tixeuil}
+\institute{CISC7020 --- Distributed Computing}
+\date{}
+
+\begin{document}
+
+% ==========================================================================
+% 1 -- TITLE
+% ==========================================================================
+\begin{frame}
+  % Title page in the deck's accent colour (tkaccent, defined above).
+  \setbeamercolor{title}{fg=tkaccent}
+  \setbeamercolor{subtitle}{fg=tkaccent!80!black}
+  \setbeamercolor{author}{fg=black!85}
+  \setbeamercolor{institute}{fg=black!70}
+  % Accent rule under the main title (title page only).
+  \setbeamertemplate{title}{%
+    \usebeamerfont{title}\usebeamercolor[fg]{title}\inserttitle\par
+    \vspace{0.3ex}%
+    {\color{tkaccent}\rule{\linewidth}{0.9pt}}\par
+    \vspace{-0.3ex}%
+  }
+  \titlepage
+  \vspace*{-3mm}
+  \begin{center}
+    {\scriptsize Presentation: CHE CHON HONG, University of Macau}
+  \end{center}
+\end{frame}
+
+% ==========================================================================
+% 2 -- MODEL AND PROBLEM
+% ==========================================================================
+\begin{frame}{1.~Model and Problem: what must be built?}
+\vspace*{-2mm}
+\begin{columns}[T]
+\begin{column}{0.52\textwidth}
+\small
+\begin{itemize}\setlength\itemsep{4pt}
+\item $G=(V,E)$: connected, undirected, $|V|=n$
+\item $d^{u}_{v}$: shortest-path length;\ \ $\varepsilon=\max_{v}d^{r}_{v}$
+\item ports $1..\delta(v)$: local, immutable, \emph{no memory}
+\item state model: read self $+$ neighbours
+\item semi-uniform \& anonymous: only $r$ is special
+\item goal: $BFS^{\equiv 3}$, $O(1)$ bits, no $n,\Delta,\varepsilon$
+\item $BFS^{\equiv 3}:\; v\longmapsto d^{r}_{v}\bmod 3$
+\end{itemize}
+\end{column}
+\begin{column}{0.45\textwidth}
+\centering
+% 20 nodes, depth eps = 5, spread fairly evenly to the left and right.
+\begin{tikzpicture}[scale=0.60,transform shape]
+  \node[groot,fill=orange!25] (r)   at ( 0.0, 0.00){$r$};
+  \node[gnode,fill=blue!15]   (u1)  at (-2.3,-1.10){$1$};
+  \node[gnode,fill=blue!15]   (u2)  at ( 2.3,-1.10){$1$};
+  \node[gnode,fill=green!22]  (u3)  at (-3.6,-2.20){$2$};
+  \node[gnode,fill=green!22]  (u4)  at (-1.2,-2.20){$2$};
+  \node[gnode,fill=green!22]  (u5)  at ( 1.2,-2.20){$2$};
+  \node[gnode,fill=green!22]  (u6)  at ( 3.6,-2.20){$2$};
+  \node[gnode,fill=orange!25] (u7)  at (-4.2,-3.30){$0$};
+  \node[gnode,fill=orange!25] (u8)  at (-1.6,-3.30){$0$};
+  \node[gnode,fill=orange!25] (u9)  at ( 0.4,-3.30){$0$};
+  \node[gnode,fill=orange!25] (u10) at ( 2.0,-3.30){$0$};
+  \node[gnode,fill=orange!25] (u11) at ( 3.6,-3.30){$0$};
+  \node[gnode,fill=blue!15]   (u12) at (-4.2,-4.40){$1$};
+  \node[gnode,fill=blue!15]   (u13) at (-1.6,-4.40){$1$};
+  \node[gnode,fill=blue!15]   (u14) at ( 0.4,-4.40){$1$};
+  \node[gnode,fill=blue!15]   (u15) at ( 2.0,-4.40){$1$};
+  \node[gnode,fill=blue!15]   (u16) at ( 3.6,-4.40){$1$};
+  \node[gnode,fill=green!22]  (u17) at (-4.2,-5.50){$2$};
+  \node[gnode,fill=green!22]  (u18) at ( 0.4,-5.50){$2$};
+  \node[gnode,fill=green!22]  (u19) at ( 3.6,-5.50){$2$};
+  % every edge points towards the parent of the BFS tree
+  \draw[garr] (u1)--(r);   \draw[garr] (u2)--(r);
+  \draw[garr] (u3)--(u1);  \draw[garr] (u4)--(u1);
+  \draw[garr] (u5)--(u2);  \draw[garr] (u6)--(u2);
+  \draw[garr] (u7)--(u3);  \draw[garr] (u8)--(u4);
+  \draw[garr] (u9)--(u5);  \draw[garr] (u10)--(u5); \draw[garr] (u11)--(u6);
+  \draw[garr] (u12)--(u7); \draw[garr] (u13)--(u8);
+  \draw[garr] (u14)--(u9); \draw[garr] (u15)--(u10); \draw[garr] (u16)--(u11);
+  \draw[garr] (u17)--(u12); \draw[garr] (u18)--(u14); \draw[garr] (u19)--(u16);
+\end{tikzpicture}
+
+\vspace{1mm}
+{\tiny $n=20$, depth $\varepsilon=5$: each node keeps only
+$d^{r}_{v}\bmod 3$ (orange $0$, blue $1$, green $2$).}
+\end{column}
+\end{columns}
+\end{frame}
+
+% ==========================================================================
+% 3 -- ALGORITHM OVERVIEW / TOKEN FLOW
+% ==========================================================================
+\begin{frame}{2.~Algorithm Overview: tokens with a limited lifespan}
+\vspace*{-2mm}
+\begin{columns}[T]
+\begin{column}{0.45\textwidth}
+\small
+\begin{itemize}\setlength\itemsep{4pt}
+\item $\mathtt{TokBinR}$ at $r$ $\parallel$ $\mathtt{TokBinV}$ at others
+\item root floods tokens; tokens from several parents are \textbf{merged}
+\item one bit per node, flipped at each reception: $\;b_v\!\leftarrow\!\bar b_v$
+\item forward $\iff b_u=\bo$ $\Rightarrow$ bounded token lifespan
+\item no cycle can sustain a token forever
+\item stabilization time $O(2^{\varepsilon})$
+\item $36$ states $=$ $6$ bits; the algorithm is \emph{not silent}
+\end{itemize}
+\end{column}
+\begin{column}{0.53\textwidth}
+\centering
+% ---- Figure 2 of the paper: the gray node of each sub-figure is the one
+% ---- that is activatable during the current step (arrows = parent links).
+\begin{tikzpicture}[transform shape]
+% ---------------- (a) ----------------
+\node[tact] (a1) at (0,0)      {$\mathit{true},\bo$};
+\node[tact] (a2) at (0,-0.98)  {$\mathit{false},\bo$};
+\node[tcell](a3) at (0,-1.96)  {$\mathit{false},\bo$};
+\node[tcell](a4) at (0,-2.94)  {$\mathit{false},\bz$};
+\node[tcell](a5) at (0,-3.92)  {$\mathit{false},\bo$};
+\node[tdot] at ($(a1)+(0,-0.36)$) {};
+\draw[tarr] (a2)--(a1); \draw[tarr] (a3)--(a2);
+\draw[tarr] (a4)--(a3); \draw[tarr] (a5)--(a4);
+\node[tlab,right=0.5mm of a1] {$v$};
+\node[tlab,right=0.5mm of a2] {$u$};
+\node[tlab,right=0.5mm of a3] {$w$};
+\node[tlab,right=0.5mm of a4] {$x$};
+\node[tlab,right=0.5mm of a5] {$y$};
+\node[tlab] at (0.3,-4.45) {(a)};
+% ---------------- (b) ----------------
+\node[tact] (b1) at (1.12,0)     {$\mathit{wait},\bz$};
+\node[tact] (b2) at (1.12,-0.98) {$\mathit{true},\bo$};
+\node[tact] (b3) at (1.12,-1.96) {$\mathit{false},\bo$};
+\node[tcell](b4) at (1.12,-2.94) {$\mathit{false},\bz$};
+\node[tcell](b5) at (1.12,-3.92) {$\mathit{false},\bo$};
+\node[tdot] at ($(b2)+(0,-0.36)$) {};
+\draw[tarr] (b2)--(b1); \draw[tarr] (b3)--(b2);
+\draw[tarr] (b4)--(b3); \draw[tarr] (b5)--(b4);
+\node[tlab] at (1.42,-4.45) {(b)};
+% ---------------- (c) ----------------
+\node[tcell](c1) at (2.24,0)     {$\mathit{false},\bz$};
+\node[tact] (c2) at (2.24,-0.98) {$\mathit{wait},\bz$};
+\node[tact] (c3) at (2.24,-1.96) {$\mathit{true},\bo$};
+\node[tact] (c4) at (2.24,-2.94) {$\mathit{false},\bz$};
+\node[tcell](c5) at (2.24,-3.92) {$\mathit{false},\bo$};
+\node[tdot] at ($(c3)+(0,-0.36)$) {};
+\draw[tarr] (c2)--(c1); \draw[tarr] (c3)--(c2);
+\draw[tarr] (c4)--(c3); \draw[tarr] (c5)--(c4);
+\node[tlab] at (2.54,-4.45) {(c)};
+% ---------------- (d) ----------------
+\node[tcell](d1) at (3.36,0)     {$\mathit{false},\bz$};
+\node[tcell](d2) at (3.36,-0.98) {$\mathit{false},\bz$};
+\node[tact] (d3) at (3.36,-1.96) {$\mathit{wait},\bz$};
+\node[tact] (d4) at (3.36,-2.94) {$\mathit{true},\bz$};
+\node[tcell](d5) at (3.36,-3.92) {$\mathit{false},\bo$};
+\node[tdot] at ($(d4)+(0,-0.36)$) {};
+\draw[tarr] (d2)--(d1); \draw[tarr] (d3)--(d2);
+\draw[tarr] (d4)--(d3); \draw[tarr] (d5)--(d4);
+\node[tlab] at (3.66,-4.45) {(d)};
+% ---------------- (e) ----------------
+\node[tcell](e1) at (4.48,0)     {$\mathit{false},\bz$};
+\node[tcell](e2) at (4.48,-0.98) {$\mathit{false},\bz$};
+\node[tcell](e3) at (4.48,-1.96) {$\mathit{false},\bz$};
+\node[tact] (e4) at (4.48,-2.94) {$\mathit{wait},\bo$};
+\node[tcell](e5) at (4.48,-3.92) {$\mathit{false},\bo$};
+\draw[tarr] (e2)--(e1); \draw[tarr] (e3)--(e2);
+\draw[tarr] (e4)--(e3); \draw[tarr] (e5)--(e4);
+\node[tlab] at (4.78,-4.45) {(e)};
+\end{tikzpicture}
+\end{column}
+\end{columns}
+\end{frame}
+
+% ==========================================================================
+% 4 -- LOCAL VARIABLES AND STATE SPACE
+% ==========================================================================
+\begin{frame}{3.~Local variables, domains and the 36-state space}
+\begin{columns}[T]
+\begin{column}{0.55\textwidth}
+\footnotesize
+\renewcommand{\arraystretch}{1.25}
+\begin{tabular}{c l l l}
+\hline
+\textbf{Var.} & \textbf{Domain} & \textbf{Stabilized} & \textbf{Special} \\
+\hline
+$\rk$ & $\{0,1,2,\bot\}$ & $d^{r}_{v}\bmod 3$ & $\bot$: reset \\
+$t$   & $\{\mathit{false},\mathit{true},\mathit{wait}\}$ & $f\!\to\!t\!\to\!w$ & --- \\
+$b$   & $\{\bz,\bo,\top\}$ & $\bz\leftrightarrow\bo$ & $\top$: error \\
+\hline
+\end{tabular}
+
+\vspace{2mm}
+\[
+|\mathcal{S}|=\underbrace{4}_{\rk_v}\times\underbrace{3}_{t_v}
+\times\underbrace{3}_{b_v}=36
+\qquad
+\underbrace{6\ \text{bits}}_{=O(1)}
+\]
+
+\vspace{0.5mm}
+\textbf{Example.} Each field is stored on $2$ bits
+($2\!\to\!\mathtt{10}$, $\mathit{true}\!\to\!\mathtt{01}$, $\bo\!\to\!\mathtt{01}$):
+\[
+\underbrace{\mathtt{10}}_{\rk_v=2}\;
+\underbrace{\mathtt{01}}_{t_v=\mathit{true}}\;
+\underbrace{\mathtt{01}}_{b_v=\bo}
+\;=\;\mathtt{100101}
+\]
+\end{column}
+\begin{column}{0.45\textwidth}
+\centering
+\vspace*{-1mm}
+\begin{tikzpicture}
+  % ---- one snapshot: n = 10, tree depth 3, one error, one reset ----
+  \node[stroot,fill=orange!25]      (r) at (2.275, 0.00) {$0$};
+  \node[stlbl,right=0.5mm of r] {$(0,f,1)$};
+  \node[stnode,fill=blue!15]        (a) at (0.650,-1.30) {$1$};
+  \node[stlbl,right=0.5mm of a] {$(1,t,1)$};
+  \node[stnode,fill=blue!15]        (b) at (2.600,-1.30) {$1$};
+  \node[stlbl,right=0.5mm of b] {$(1,w,0)$};
+  \node[stnode,fill=blue!15]        (c) at (3.900,-1.30) {$1$};
+  \node[stlbl,right=0.5mm of c] {$(1,f,0)$};
+  \node[stnode,fill=red!18]         (d) at (0.000,-2.60) {$\top$};
+  \node[stlbl,right=0.5mm of d] {$(2,w,\top)$};
+  \node[stnode,fill=green!22]       (e) at (1.300,-2.60) {$2$};
+  \node[stlbl,right=0.5mm of e] {$(2,t,0)$};
+  \node[stnode,fill=green!22]       (f) at (2.600,-2.60) {$2$};
+  \node[stlbl,right=0.5mm of f] {$(2,f,1)$};
+  \node[stnode,dashed,fill=gray!15] (g) at (3.900,-2.60) {$\bot$};
+  \node[stlbl,right=0.5mm of g] {$(\bot,f,0)$};
+  \node[stnode,fill=orange!20]      (h) at (-0.650,-3.90) {$0$};
+  \node[stlbl,right=0.5mm of h] {$(0,t,1)$};
+  \node[stnode,fill=orange!20]      (i) at (0.650,-3.90) {$0$};
+  \node[stlbl,right=0.5mm of i] {$(0,f,1)$};
+  % ---- an arrow means: this edge is a legal parent link -----------
+  \draw[garr]   (a)--(r);  \draw[garr] (b)--(r);  \draw[garr] (c)--(r);
+  \draw[garr]   (d)--(a);  \draw[garr] (e)--(a);
+  \draw[garr]   (f)--(b);
+  \draw[stdead] (g)--(c);
+  \draw[garr]   (h)--(d);  \draw[garr] (i)--(d);
+\end{tikzpicture}
+
+\vspace{1.5mm}
+{\tiny $n=10$, depth $\varepsilon=3$: rank $=$ depth $\bmod 3$, so level $3$ is
+rank $0$ again. Each circle shows $\rk_v$; arrows are legal parent links.\par
+\vspace{0.5mm}
+$t\in\{f,t,w\}$,\quad $b\in\{0,1,\top\}$. Red $\top$: error; dashed $\bot$:
+reset (no parent).\par}
+\end{column}
+\end{columns}
+\end{frame}
+
+% ==========================================================================
+% 5 -- KINSHIP AND RESET
+% ==========================================================================
+\begin{frame}{4.~Terms: kinship structure and the reset state}
+\begin{columns}[T]
+\begin{column}{0.55\textwidth}
+\footnotesize
+\setlength{\abovedisplayskip}{1pt}\setlength{\belowdisplayskip}{1pt}
+\setlength{\abovedisplayshortskip}{1pt}\setlength{\belowdisplayshortskip}{1pt}
+The rank of $v$ turns its neighbourhood into a family:
+\[
+\begin{aligned}
+\Pa(v)&=\{\,u\in\Neig(v)\mid \rk_u=(\rk_v-1)\bmod 3\,\}\\
+\Ch(v)&=\{\,u\in\Neig(v)\mid \rk_u=(\rk_v+1)\bmod 3\,\}\\
+\Si(v)&=\{\,u\in\Neig(v)\mid \rk_u=\rk_v\,\}
+\end{aligned}
+\]
+A neighbour of rank $\rk_v+2$ is \emph{not} a parent --- ranks live on a
+3-cycle, so only the two ``adjacent'' levels are meaningful.
+
+\vspace{1.5mm}
+\textbf{Reset state} --- an error makes $v$ disconnect itself:
+\[
+\mathit{Reset}(v)\;\equiv\;\rk_v=\bot\;\wedge\;t_v=\mathit{false}\;\wedge\;b_v=\bz
+\]
+A reset node has \emph{no} family: $\Pa(v)=\Ch(v)=\Si(v)=\emptyset$.
+
+\vspace{1.5mm}
+\textbf{Parent selection} (no identifiers, so use ports):
+\[
+\mathrm{parent}(v)=\operatorname*{arg\,min}_{u\in\Pa(v)}\ \pi_v(u)
+\]
+computed \emph{on the fly}, never stored.
+\end{column}
+\begin{column}{0.45\textwidth}
+\centering
+% ================= a 2x2 grid of four small graphs =================
+% ---- (1) kinship: the family sets are read off the ranks ----------
+\begin{minipage}[t]{0.49\linewidth}
+\centering
+\begin{tikzpicture}[scale=0.72,transform shape]
+  \node[gnode,fill=orange!22] (p) at (0, 1.35) {$0$};
+  \node[gnode,fill=red!18]    (v) at (0, 0)    {$1$};
+  \node[gnode,fill=green!22]  (c) at (0,-1.35) {$2$};
+  \node[gnode,fill=red!18]    (s) at (1.55,0)  {$1$};
+  \draw[gedge] (p)--(v) node[midway,clbl,left]{parent};
+  \draw[gedge] (v)--(c) node[midway,clbl,left]{child};
+  \draw[gedge] (v)--(s) node[midway,clbl,above]{sibling};
+\end{tikzpicture}
+\\[0.6mm]{\fontsize{5.5}{6.3}\selectfont $\Pa/\Ch/\Si$ from ranks}
+\end{minipage}\hfill
+% ---- (2) reset state: a dormant node ignores every token ---------
+\begin{minipage}[t]{0.49\linewidth}
+\centering
+\begin{tikzpicture}[scale=0.72,transform shape]
+  \node[rnode,fill=gray!15] (x) at (0,0) {$\bot$};
+  \node[gnode,fill=blue!12] (n1) at (1.35,0.75) {};
+  \node[gnode,fill=blue!12] (n2) at (1.35,-0.75) {};
+  \draw[gedge] (x)--(n1); \draw[gedge] (x)--(n2);
+  \node[clbl,right=1mm of n1] {ignored};
+\end{tikzpicture}
+\\[0.6mm]{\fontsize{5.5}{6.3}\selectfont $\mathit{Reset}(v)$: dormant}
+\end{minipage}
+
+\vspace{1.5mm}
+% ---- (3) parent selection: the smallest port wins ---------------
+\begin{minipage}[t]{0.49\linewidth}
+\centering
+\begin{tikzpicture}[scale=0.72,transform shape]
+  \node[gnode,fill=orange!22] (u1) at (-1.45,0.9) {$u_1$};
+  \node[gnode,fill=orange!22] (u2) at ( 1.45,0.9) {$u_2$};
+  \node[gnode,fill=red!18]    (v)  at (0,-0.5)    {$v$};
+  \draw[gedge] (u1)--(v) node[midway,clbl,above left=-1mm]{$2$};
+  \draw[garr]  (u2)--(v) node[midway,clbl,above right=-1mm]{$1$};
+\end{tikzpicture}
+\\[0.6mm]{\fontsize{5.5}{6.3}\selectfont port order picks $u_2$}
+\end{minipage}\hfill
+% ---- (4) the oriented BFS tree that has to be built --------------
+\begin{minipage}[t]{0.49\linewidth}
+\centering
+\begin{tikzpicture}[scale=0.72,transform shape]
+  \node[groot,fill=orange!25] (r) at (0,1.15) {$r$};
+  \node[gnode,fill=blue!15]   (a) at (-0.9,0) {};
+  \node[gnode,fill=blue!15]   (b) at ( 0.9,0) {};
+  \node[gnode,fill=green!22]  (c) at (-1.35,-1.05) {};
+  \node[gnode,fill=green!22]  (d) at (-0.45,-1.05) {};
+  \node[gnode,fill=green!22]  (e) at ( 0.9,-1.05)  {};
+  \draw[garr] (a)--(r); \draw[garr] (b)--(r);
+  \draw[garr] (c)--(a); \draw[garr] (d)--(a); \draw[garr] (e)--(b);
+\end{tikzpicture}
+\\[0.6mm]{\fontsize{5.5}{6.3}\selectfont oriented BFS tree}
+\end{minipage}
+\end{column}
+\end{columns}
+\end{frame}
+
+% ==========================================================================
+% 6 -- ROOT ALGORITHM
+% ==========================================================================
+\begin{frame}{5.~Root algorithm \texorpdfstring{$\mathtt{TokBinR}$}{TokBinR}: 3 predicates, 2 rules}
+\begin{columns}[T]
+\begin{column}{0.5\textwidth}
+\footnotesize
+\textbf{Neighbourhood predicates of $r$:}
+\[
+\begin{array}{@{}l@{\quad}r@{\;}l@{}}
+\tknum{1} & \mathcal{N}_{Synch}(r) & \equiv\forall u,v\in\Neig(r):\\
+          &                       & \quad\rk_u=\rk_v=1\wedge b_u=b_v\wedge t_u=t_v\\[2pt]
+\tknum{2} & \mathcal{N}_{Reset}(r) & \equiv\forall u\in\Neig(r):\mathit{Reset}(u)\\[2pt]
+\tknum{3} & \mathcal{N}_{Er}(r)    & \equiv\forall u\in\Neig(r): b_u=\top
+\end{array}
+\]
+
+\textbf{Two rules:}
+\[
+\begin{array}{@{}l@{\quad}r@{\;}l@{}}
+\tknum{4} & \RerRoot & :\;b_r\neq\top\;\wedge\;\neg\bigl(\mathcal{N}_{Synch}\vee\mathcal{N}_{Reset}\vee\mathcal{N}_{Er}\bigr)\\
+          &          & \quad\longrightarrow\; b_r:=\top\\[3pt]
+\tknum{5} & \Rgo     & :\;b_r=\top\;\wedge\;\mathcal{N}_{Er}\;\longrightarrow\;b_r:=\bo
+\end{array}
+\]
+\end{column}
+\begin{column}{0.5\textwidth}
+\centering
+% ---- (1) N_Synch: a neighbourhood that agrees with the root ----------
+\begin{minipage}[t]{0.49\linewidth}
+\centering
+\begin{tikzpicture}[scale=0.72,transform shape,bigtext]
+  \node[groot,fill=orange!25] (r) at (0,0) {$r$};
+  \node[gnode,fill=blue!15] (n1) at ( 1.40, 0.90) {$1$};
+  \node[gnode,fill=blue!15] (n2) at ( 1.40,-0.90) {$1$};
+  \node[gnode,fill=blue!15] (n3) at (-1.40, 0.00) {$1$};
+  \draw[gedge] (r)--(n1); \draw[gedge] (r)--(n2); \draw[gedge] (r)--(n3);
+  \node[clbl,above=0.2mm of n1] {$\bo,t$};
+  \node[clbl,below=0.2mm of n2] {$\bo,t$};
+  \node[clbl,above=0.2mm of n3] {$\bo,t$};
+\end{tikzpicture}
+\\[0.6mm]{\fontsize{7.2}{8.4}\selectfont
+\tknum{1}\ $\Neig_{Synch}$: all rank $1$, same $b,t$}
+\end{minipage}\hfill
+% ---- (2) N_Reset: every neighbour dormant ---------------------------
+\begin{minipage}[t]{0.49\linewidth}
+\centering
+\begin{tikzpicture}[scale=0.72,transform shape,bigtext]
+  \node[groot,fill=orange!25] (r) at (0,0) {$r$};
+  \node[rnode,fill=gray!15] (n1) at ( 1.40, 0.90) {$\bot$};
+  \node[rnode,fill=gray!15] (n2) at ( 1.40,-0.90) {$\bot$};
+  \node[rnode,fill=gray!15] (n3) at (-1.40, 0.00) {$\bot$};
+  \draw[gedge] (r)--(n1); \draw[gedge] (r)--(n2); \draw[gedge] (r)--(n3);
+\end{tikzpicture}
+\\[0.6mm]{\fontsize{7.2}{8.4}\selectfont
+\tknum{2}\ $\Neig_{Reset}$: all neighbours dormant}
+\end{minipage}
+
+\vspace{1.5mm}
+% ---- (3) N_Er: every neighbour carries the error bit ----------------
+\begin{minipage}[t]{0.49\linewidth}
+\centering
+\begin{tikzpicture}[scale=0.72,transform shape,bigtext]
+  \node[groot,fill=orange!25] (r) at (0,0) {$r$};
+  \node[gnode,fill=red!18] (n1) at ( 1.40, 0.90) {$\top$};
+  \node[gnode,fill=red!18] (n2) at ( 1.40,-0.90) {$\top$};
+  \node[gnode,fill=red!18] (n3) at (-1.40, 0.00) {$\top$};
+  \draw[gedge] (r)--(n1); \draw[gedge] (r)--(n2); \draw[gedge] (r)--(n3);
+\end{tikzpicture}
+\\[0.6mm]{\fontsize{7.2}{8.4}\selectfont
+\tknum{3}\ $\Neig_{Er}$: all neighbours $\top$}
+\end{minipage}\hfill
+% ---- (4) the two root rules -----------------------------------------
+\begin{minipage}[t]{0.49\linewidth}
+\centering
+\begin{tikzpicture}[scale=0.72,transform shape,bigtext]
+  \node[groot,fill=red!20] (r) at (0,0) {$r$};
+  \node[gnode,fill=red!12] (n1) at ( 1.45, 0.85) {$\top$};
+  \node[gnode,fill=red!12] (n2) at ( 1.45,-0.85) {$\top$};
+  \node[gnode,fill=blue!12] (m1) at (-1.45, 0.00) {$\bo$};
+  \draw[garr,dashed,draw=red!70!black]
+      (r)--node[clbl,above=-0.5mm]{\RerRoot}(n1);
+  \draw[gedge] (r)--(n2);
+  \draw[garr,dashed,draw=blue!70!black]
+      (r)--node[clbl,above]{\Rgo}(m1);
+\end{tikzpicture}
+\\[0.6mm]{\fontsize{7.2}{8.4}\selectfont
+\tknum{4--5}\ $\RerRoot$: raise $\top$;\ $\Rgo$: restart}
+\end{minipage}
+\end{column}
+\end{columns}
+\end{frame}
+
+% ==========================================================================
+% 7 -- TOKEN RECEPTION PREDICATES
+% ==========================================================================
+\begin{frame}{6.~Token reception predicates}
+\vspace*{-3mm}
+\begin{columns}[T]
+\begin{column}{0.49\textwidth}
+\footnotesize
+\setlength{\abovedisplayskip}{1pt}\setlength{\belowdisplayskip}{1pt}
+\setlength{\abovedisplayshortskip}{1pt}\setlength{\belowdisplayshortskip}{1pt}
+\textbf{\textsc{Senders / Tokens}}\\
+The set of neighbours that \emph{offer} a token to $v$:
+\[
+\begin{array}{@{}l@{\quad}r@{\;}l@{}}
+\tknum{1} & \mathit{Tok}(v)     & =\bigl\{u\in\Neig(v)\mid t_u=\mathit{true}\wedge b_u=\bo\bigr\}\\[2pt]
+\tknum{2} & \mathit{TakeP}(v)   & \equiv \mathit{Tok}(v)\neq\emptyset\;\wedge\;\mathit{Tok}(v)=\Pa(v)\\[2pt]
+\tknum{3} & \mathit{TakeO}(v)   & \equiv \mathit{Tok}(v)\neq\emptyset\;\wedge\;\mathit{Tok}(v)\neq\Pa(v)\\[2pt]
+\tknum{4} & \mathit{Tok}_{rk}(v) & =\min\{\rk_u\mid u\in\mathit{Tok}(v)\}\\[2pt]
+\tknum{5} & \mathit{TakeR}(v)   & \equiv \mathit{Tok}(v)\neq\emptyset\;\wedge\;\mathit{Tok}(v)=\\
+          &                     & \;\bigl\{u\in\Neig(v)\mid \rk_u=\mathit{Tok}_{rk}(v)\bigr\}\\[2pt]
+\tknum{6} & \rk_t(v)            & =\bigl(\mathit{Tok}_{rk}(v)+1\bigr)\bmod 3
+\end{array}
+\]
+\end{column}
+\begin{column}{0.50\textwidth}
+\centering
+% ---- (1) Tok(v): exactly the neighbours that offer a token --------
+\begin{minipage}[t]{0.49\linewidth}
+\centering
+\begin{tikzpicture}[scale=0.72,transform shape,bigtext]
+  \node[gnode,fill=red!18]  (v) at (0,-0.55) {$v$};
+  \node[gnode,fill=blue!12] (a) at (-1.05,0.62) {};
+  \node[gnode,fill=blue!12] (b) at ( 0.00,0.85) {};
+  \node[gnode,fill=blue!12] (c) at ( 1.05,0.62) {};
+  \draw[garr]  (a)--(v);
+  \draw[gedge] (b)--(v); \draw[gedge] (c)--(v);
+  \node[clbl,above=0.3mm of a] {$\bo,t$};
+  \node[clbl,above=0.3mm of b] {$\bz,t$};
+  \node[clbl,above=0.3mm of c] {$\bo,f$};
+\end{tikzpicture}
+\\[0.5mm]{\fontsize{7.2}{8.4}\selectfont
+\tknum{1}\ $\mathit{Tok}(v)$: the token senders}
+\end{minipage}\hfill
+% ---- (2) TakeP: the senders are exactly the parents ---------------
+\begin{minipage}[t]{0.49\linewidth}
+\centering
+\begin{tikzpicture}[scale=0.72,transform shape,bigtext]
+  \node[gnode,fill=red!18]  (v)  at (0,-0.55) {$1$};
+  \node[gnode,fill=blue!12] (p1) at (-1.05,0.62) {$0$};
+  \node[gnode,fill=blue!12] (p2) at ( 1.05,0.62) {$0$};
+  \draw[garr] (p1)--(v); \draw[garr] (p2)--(v);
+  \node[clbl,above=0.3mm of p1] {$\bo,t$};
+  \node[clbl,above=0.3mm of p2] {$\bo,t$};
+\end{tikzpicture}
+\\[0.5mm]{\fontsize{7.2}{8.4}\selectfont
+\tknum{2}\ $\mathit{TakeP}(v)$: senders $=\Pa(v)$}
+\end{minipage}
+
+\vspace{1.2mm}
+% ---- (3) TakeO: a sender that is not a parent ---------------------
+\begin{minipage}[t]{0.49\linewidth}
+\centering
+\begin{tikzpicture}[scale=0.72,transform shape,bigtext]
+  \node[gnode,fill=red!18]   (v) at (0,-0.55) {$1$};
+  \node[gnode,fill=blue!12]  (p) at (-1.05,0.62) {$0$};
+  \node[gnode,fill=green!22] (c) at ( 1.05,0.62) {$2$};
+  \draw[gedge] (p)--(v); \draw[garr] (c)--(v);
+  \node[clbl,above=0.3mm of p] {$\bz,f$};
+  \node[clbl,above=0.3mm of c] {$\bo,t$};
+\end{tikzpicture}
+\\[0.5mm]{\fontsize{7.2}{8.4}\selectfont
+\tknum{3}\ $\mathit{TakeO}(v)$: senders $\neq\Pa(v)$}
+\end{minipage}\hfill
+% ---- (4) Tok_rk: the smallest rank among the senders --------------
+\begin{minipage}[t]{0.49\linewidth}
+\centering
+\begin{tikzpicture}[scale=0.72,transform shape,bigtext]
+  \node[gnode,fill=red!18]    (v)  at (0,-0.55) {$v$};
+  \node[gnode,fill=orange!45] (s0) at (-1.10,0.62) {$0$};
+  \node[gnode,fill=blue!12]   (s1) at ( 0.00,0.85) {$1$};
+  \node[gnode,fill=blue!12]   (s2) at ( 1.10,0.62) {$2$};
+  \draw[garr] (s0)--(v); \draw[garr] (s1)--(v); \draw[garr] (s2)--(v);
+\end{tikzpicture}
+\\[0.5mm]{\fontsize{7.2}{8.4}\selectfont
+\tknum{4}\ $\mathit{Tok}_{rk}(v)=\min\rk_u$}
+\end{minipage}
+
+\vspace{1.2mm}
+% ---- (5) TakeR: all senders sit on that minimal rank --------------
+\begin{minipage}[t]{0.49\linewidth}
+\centering
+\begin{tikzpicture}[scale=0.72,transform shape,bigtext]
+  \node[gnode,fill=red!18]    (v)  at (0,-0.55) {$v$};
+  \node[gnode,fill=orange!45] (s0) at (-1.05,0.62) {$0$};
+  \node[gnode,fill=orange!45] (s1) at ( 1.05,0.62) {$0$};
+  \draw[garr] (s0)--(v); \draw[garr] (s1)--(v);
+\end{tikzpicture}
+\\[0.5mm]{\fontsize{7.2}{8.4}\selectfont
+\tknum{5}\ $\mathit{TakeR}(v)$: one single rank}
+\end{minipage}\hfill
+% ---- (6) rk_t: the rank that v then adopts ------------------------
+\begin{minipage}[t]{0.49\linewidth}
+\centering
+\begin{tikzpicture}[scale=0.72,transform shape,bigtext]
+  \node[gnode,fill=blue!12]   (s) at (-1.05,0.62) {$2$};
+  \node[gnode,fill=orange!45] (v) at ( 0.00,-0.55) {$0$};
+  \draw[garr] (s)--(v);
+  \node[clbl,right=0.5mm of v] {$\rk_v\!:=\!\rk_t$};
+\end{tikzpicture}
+\\[0.5mm]{\fontsize{7.2}{8.4}\selectfont
+\tknum{6}\ $\rk_t(v)=(\mathit{Tok}_{rk}\!+\!1)\bmod 3$}
+\end{minipage}
+\end{column}
+\end{columns}
+\end{frame}
+
+% ==========================================================================
+% 8 -- TOKBINV RULES
+% ==========================================================================
+\begin{frame}{7.~Non-root algorithm \texorpdfstring{$\mathtt{TokBinV}$}{TokBinV}: the seven rules}
+\vspace*{-3mm}
+\begin{columns}[T]
+\begin{column}{0.51\textwidth}
+\footnotesize
+\setlength{\abovedisplayskip}{1pt}\setlength{\belowdisplayskip}{1pt}
+\setlength{\abovedisplayshortskip}{1pt}\setlength{\belowdisplayshortskip}{1pt}
+\[
+\begin{array}{@{}l@{\quad}r@{\,}l@{}}
+\tknum{1} & \Rer      &:\;b_v\!\neq\!\top\wedge Er(v)\\
+          &           &\quad\phantom{:}\;\longrightarrow t_v\!:=\!w;\,b_v\!:=\!\top\\[1pt]
+\tknum{2} & \Rreset   &:\;b_v\!=\!\top\vee Er_{var}(v)\\
+          &           &\quad\phantom{:}\;\longrightarrow \rk_v\!:=\!\bot;\,t_v\!:=\!f;\,b_v\!:=\!\bz\\[1pt]
+\tknum{3} & \RerRank  &:\;\neg Er(v)\wedge\rk_v\!\neq\!\bot\wedge t_v\!=\!f\wedge\mathit{TakeO}(v)\\
+          &           &\quad\phantom{:}\;\longrightarrow t_v\!:=\!w;\,b_v\!:=\!\top\\[1pt]
+\tknum{4} & \Rjoin    &:\;\neg Er(v)\wedge\rk_v\!=\!\bot\wedge\mathit{TakeR}(v)\\
+          &           &\quad\phantom{:}\;\longrightarrow \rk_v\!:=\!\rk_t(v);\,b_v\!:=\!\bo\\[1pt]
+\hline
+\tknum{5} & \Rtok     &:\;\neg Er(v)\wedge\rk_v\!\neq\!\bot\wedge t_v\!=\!f\wedge\mathit{TakeP}(v)\\
+          &           &\quad\phantom{:}\;\longrightarrow t_v\!:=\!\mathit{true}\\[1pt]
+\tknum{6} & \Radd     &:\;\neg Er(v)\wedge t_v\!=\!\mathit{true}\\
+          &           &\quad\phantom{:}\;\longrightarrow t_v\!:=\!w;\,b_v\!:=\!(b_v\!+\!1)\bmod 2\\[1pt]
+\tknum{7} & \Rready   &:\;\neg Er(v)\wedge t_v\!=\!w\\
+          &           &\quad\phantom{:}\;\longrightarrow t_v\!:=\!f
+\end{array}
+\]
+\end{column}
+\begin{column}{0.47\textwidth}
+\vspace*{4mm}
+\noindent\hspace*{-3mm}%
+\begin{tikzpicture}[scale=0.72,transform shape,every node/.style={font=\scriptsize}]
+  \node (A) at (0.0,0.0) {$(k,\mathit{true},b)$};
+  \node (B) at (3.0,0.0) {$(k,\mathit{wait},\bar b)$};
+  \node (C) at (6.0,0.0) {$(k,\mathit{false},b)$};
+  \node (E) at (3.0,2.3) {$(k,\mathit{wait},\top)$};
+  \node (R) at (6.0,2.3) {$(\bot,\mathit{false},\bz)$};
+  \draw[garr] (A)--node[rlbl,above]{\Radd}(B);
+  \draw[garr] (B)--node[rlbl,above]{\Rready}(C);
+  \draw[garr] (C) to[out=-35,in=-145] node[rlbl,below]{\Rtok}(A);
+  \draw[garr,dotted,draw=red!70!black] (A)--(E);
+  \draw[garr,dotted,draw=red!70!black]
+      (B)--node[rlbl,above left=1.5mm]{\Rer$\vee$\RerRank}(E);
+  \draw[garr,dotted,draw=red!70!black] (C)--(E);
+  \draw[garr,dashed,draw=blue!70!black] (E)--node[rlbl,above]{\Rreset}(R);
+  \draw[garr,dashed,draw=blue!70!black] (R)--node[rlbl,right]{\Rjoin}(C);
+\end{tikzpicture}
+
+\vspace{1.0mm}
+{\tiny The five state shapes; arrows are the seven rules.\par}
+\end{column}
+\end{columns}
+\end{frame}
+
+% ==========================================================================
+% 9 -- ERROR DETECTION I
+% ==========================================================================
+\begin{frame}{8.~Error detection predicates I: state and token flow}
+\vspace*{-3mm}
+\begin{columns}[T]
+\begin{column}{0.49\textwidth}
+\footnotesize
+\setlength{\abovedisplayskip}{1pt}\setlength{\belowdisplayskip}{1pt}
+\setlength{\abovedisplayshortskip}{1pt}\setlength{\belowdisplayshortskip}{1pt}
+\textbf{\textsc{Internal state}}
+\[
+\begin{array}{@{}l@{\quad}r@{\;}l@{}}
+\tknum{1} & Er_{var}(v)  & \equiv \rk_v=\bot\wedge\neg\mathit{Reset}(v)\\[1pt]
+\tknum{2} & Er_{Root}(v) & \equiv\bigl(\exists u\!\in\!\Neig(v):\rk_u=0^{*}\bigr)\\
+          &              & \quad\wedge|\Pa(v)|>1\\[1pt]
+\tknum{3} & Er_{noP}(v)  & \equiv \rk_v\neq\bot\wedge\Pa(v)=\emptyset
+\end{array}
+\]
+
+\textbf{\textsc{Token flow}}
+\[
+\begin{array}{@{}l@{\quad}r@{\;}l@{}}
+\tknum{4} & Er_{tp}(v)   & \equiv\neg Er_{prg}(v)\wedge b_v\neq\top\\
+          &              & \quad\wedge\bigl(\exists u\!\in\!\Ch(v):t_u=\mathit{true}\bigr)\\
+          &              & \quad\wedge\neg\bigl(t_v=\mathit{wait}\wedge b_v=\bz\bigr)\\[1pt]
+\tknum{5} & Er_{wait}(v) & \equiv t_v=\mathit{wait}\wedge b_v=\bz\\
+          &              & \quad\wedge\bigl(\exists u\!\in\!\Neig(v):\mathit{Reset}(u)\bigr)
+\end{array}
+\]
+\end{column}
+\begin{column}{0.50\textwidth}
+\centering
+% ---- (1) Er_var: rank bottom, but the node is not properly reset ----
+\begin{minipage}[t]{0.49\linewidth}
+\centering
+\begin{tikzpicture}[scale=0.72,transform shape,bigtext]
+  \node[gnode,fill=red!18]   (v)  at ( 0.00,-0.50) {$\bot$};
+  \node[gnode,fill=blue!12]  (n1) at (-1.05, 0.55) {};
+  \node[gnode,fill=blue!12]  (n2) at ( 1.05, 0.55) {};
+  \draw[gedge] (n1)--(v); \draw[gedge] (n2)--(v);
+  \node[clbl,right=0.6mm of v] {$t_v\!\neq\!\mathit{f}$};
+\end{tikzpicture}
+\\[0.5mm]{\fontsize{7.2}{8.4}\selectfont
+\tknum{1}\ $Er_{var}$: $\rk_v=\bot$, not reset}
+\end{minipage}\hfill
+% ---- (2) Er_Root: a root neighbour and more than one parent --------
+\begin{minipage}[t]{0.49\linewidth}
+\centering
+\begin{tikzpicture}[scale=0.72,transform shape,bigtext]
+  \node[groot,fill=orange!25] (r)  at (-1.05,0.55) {$r$};
+  \node[gnode,fill=orange!22] (p2) at ( 1.05,0.55) {$0$};
+  \node[gnode,fill=red!18]    (v)  at ( 0.00,-0.50) {$1$};
+  \draw[garr] (r)--(v);  \draw[garr] (p2)--(v);
+  \node[clbl,below=0.3mm of v] {$|\Pa(v)|>1$};
+\end{tikzpicture}
+\\[0.5mm]{\fontsize{7.2}{8.4}\selectfont
+\tknum{2}\ $Er_{Root}$: root neighbour, $2$ parents}
+\end{minipage}
+
+\vspace{1.5mm}
+% ---- (3) Er_noP: rank set, yet no parent at all --------------------
+\begin{minipage}[t]{0.49\linewidth}
+\centering
+\begin{tikzpicture}[scale=0.72,transform shape,bigtext]
+  \node[gnode,fill=red!18]   (v)  at ( 0.00,-0.50) {$1$};
+  \node[gnode,fill=green!22] (n1) at (-1.05, 0.55) {$2$};
+  \node[gnode,fill=green!22] (n2) at ( 1.05, 0.55) {$2$};
+  \draw[gedge] (n1)--(v); \draw[gedge] (n2)--(v);
+  \node[clbl,below=0.3mm of v] {$\Pa(v)=\emptyset$};
+\end{tikzpicture}
+\\[0.5mm]{\fontsize{7.2}{8.4}\selectfont
+\tknum{3}\ $Er_{noP}$: no parent, $\rk_v\!\neq\!\bot$}
+\end{minipage}\hfill
+% ---- (4) Er_tp: a child still carries a token ---------------------- 
+\begin{minipage}[t]{0.49\linewidth}
+\centering
+\begin{tikzpicture}[scale=0.72,transform shape,bigtext]
+  \node[gnode,fill=red!18]   (v)  at ( 0.00,-0.50) {$1$};
+  \node[gnode,fill=blue!12]  (n1) at (-1.05, 0.55) {$2$};
+  \node[gnode,fill=blue!12]  (n2) at ( 1.05, 0.55) {$2$};
+  \draw[gedge] (n1)--(v); \draw[gedge] (n2)--(v);
+  \node[clbl,above=0.3mm of n1] {$\bo,t$};
+  \node[clbl,above=0.3mm of n2] {$\bz,f$};
+  \node[clbl,below=0.3mm of v] {$b_v\!\neq\!\top$};
+\end{tikzpicture}
+\\[0.5mm]{\fontsize{7.2}{8.4}\selectfont
+\tknum{4}\ $Er_{tp}$: a child sends a token}
+\end{minipage}
+
+\vspace{1.5mm}
+% ---- (5) Er_wait: waiting on a dormant neighbour -------------------
+\begin{minipage}[t]{0.49\linewidth}
+\centering
+\begin{tikzpicture}[scale=0.72,transform shape,bigtext]
+  \node[gnode,fill=red!18]  (v) at ( 0.00,-0.50) {$1$};
+  \node[rnode,fill=gray!15] (n1) at (0.00, 0.60) {$\bot$};
+  \node[gnode,fill=blue!12] (n2) at (1.10,-0.50) {};
+  \draw[gedge] (n1)--(v); \draw[gedge] (n2)--(v);
+  \node[clbl,left=0.6mm of v] {$(w,\bz)$};
+\end{tikzpicture}
+\\[0.5mm]{\fontsize{7.2}{8.4}\selectfont
+\tknum{5}\ $Er_{wait}$: reset neighbour}
+\end{minipage}
+\end{column}
+\end{columns}
+\end{frame}
+
+% ==========================================================================
+% 10 -- ERROR DETECTION II
+% ==========================================================================
+\begin{frame}[fragile]{9.~Error detection II: \texorpdfstring{sync.\ \& propagation}{sync and propagation}}
+\vspace*{-3mm}
+\begin{columns}[T]
+\begin{column}{0.49\textwidth}
+\scriptsize
+\setlength{\abovedisplayskip}{1pt}\setlength{\belowdisplayskip}{1pt}
+\setlength{\abovedisplayshortskip}{1pt}\setlength{\belowdisplayshortskip}{1pt}
+\textbf{\textsc{Synchronization}}
+\begin{align*}
+Er_P(v)&\equiv\exists u,w\!\in\!\Pa(v): b_u\!\neq\!b_w\vee t_u\!\neq\!t_w\\[1pt]
+Er_C(v)&\equiv\exists u,w\!\in\!\Ch(v): b_u\!\neq\!b_w\vee t_u\!\neq\!t_w\\[1pt]
+Er_S(v)&\equiv\exists u\!\in\!\Si(v): b_u\!\neq\!b_v\vee t_u\!\neq\!t_v\\[1pt]
+Er_{Re}(v)&\equiv \rk_v\!\neq\!\bot\wedge\Ch(v)\!\neq\!\emptyset\wedge t_v\!\neq\!\mathit{true}\\[1pt]
+&\quad\wedge\bigl(\exists u\!\in\!\Neig(v):\rk_u=\bot\bigr)\\[1pt]
+Er_N(v)&\equiv\neg Er_{prg}(v)\wedge b_v\!\neq\!\top\wedge\neg\mathit{TakeO}(v)\\[1pt]
+&\quad\wedge\bigl(Er_P\vee Er_C\vee Er_S\vee Er_{Re}\bigr)\\[1pt]
+Er_\pi(v)&\equiv\mathit{Reset}(v)\wedge\bigl(\exists u,w\!\in\!\Neig(v):\\[1pt]
+&\quad\rk_u\!=\!\rk_w\wedge(b_u\!\neq\!b_w\vee t_u\!\neq\!t_w)\bigr)
+\end{align*}
+
+\textbf{\textsc{Propagation \& global}}
+\begin{align*}
+Er_{prg}(v)&\equiv\exists u\!\in\!\Neig(v): b_u=\top\\[1pt]
+Er(v)&\equiv Er_{Root}\vee Er_{tp}\vee Er_N\vee Er_{noP}\\[1pt]
+&\quad\vee Er_{prg}\vee Er_\pi\vee Er_{wait}
+\end{align*}
+\end{column}
+\begin{column}{0.50\textwidth}
+\begin{lstlisting}[style=jsc]
+function Er_P(G,v){ return diffPair(parents(G,v)); }
+function Er_C(G,v){ return diffPair(children(G,v)); }
+function Er_S(G,v){
+  return siblings(G,v).some(u=>u.b!==v.b || u.t!==v.t);
+}
+function Er_Re(G,v){
+  return v.rk!==BOT && children(G,v).length>0
+      && v.t!==TRUE
+      && G.adj[v.id].some(u=>u.rk===BOT);
+}
+function Er_N(G,v){
+  return !Er_prg(G,v) && v.b!==BTOP && !TakeO(G,v)
+      && (Er_P(G,v)||Er_C(G,v)||Er_S(G,v)||Er_Re(G,v));
+}
+function Er_pi(G,v){
+  if(!Reset(v)) return false;
+  const nb=G.adj[v.id].filter(u=>u.rk!==BOT);
+  for(let i=0;i<nb.length;i++)
+   for(let j=i+1;j<nb.length;j++)
+    if(nb[i].rk===nb[j].rk &&
+       (nb[i].b!==nb[j].b || nb[i].t!==nb[j].t)) return true;
+  return false;
+}
+function Er_prg(G,v){
+  return G.adj[v.id].some(u=>u.b===BTOP);
+}
+function Er(G,v){                    // priority order
+  if(Er_prg(G,v))  return 'Er_prg';
+  if(Er_Root(G,v)) return 'Er_Root';
+  if(Er_noP(G,v))  return 'Er_noP';
+  if(Er_pi(G,v))   return 'Er_pi';
+  if(Er_tp(G,v))   return 'Er_tp';
+  if(Er_wait(G,v)) return 'Er_wait';
+  if(Er_N(G,v))    return 'Er_N';
+  return null;
+}
+\end{lstlisting}
+\end{column}
+\end{columns}
+\end{frame}
+
+% ==========================================================================
+% 11 -- FROM PAPER TO SIMULATION
+% ==========================================================================
+\begin{frame}{10.~From the paper to a JavaScript simulation}
+\vspace*{-1.5mm}
+\noindent{\small My own JavaScript simulation of the complete guarded rule set.}
+\vspace{1.2mm}
+
+\noindent\fboxsep=0pt
+\fcolorbox{gray!55}{gray!6}{%
+  \begin{minipage}[c][0.70\textheight][c]{%
+      \dimexpr\linewidth-2\fboxrule-2\fboxsep\relax}
+    \centering\color{gray!60}\small
+    [\,screenshot:\ \texttt{tokbin-visualization.html}\,]
+  \end{minipage}}
+\end{frame}
+
+% ==========================================================================
+% 12 -- THANK YOU
+% ==========================================================================
+\begin{frame}[plain]
+  \centering
+  \vfill
+  {\Huge\bfseries Thank you}
+  \vspace{4mm}
+
+  \vfill
+\end{frame}
+
+\end{document}

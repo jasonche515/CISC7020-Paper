@@ -639,6 +639,125 @@ i.e., $\bar{b}^i = (b^i + 1) \bmod 2$. }
     \item \textbf{(e)} \(x\) 執行 \(\Rready\)。
 \end{itemize}
 
+% ------------------------------------------------------------
+% 3.7 Error Detection Predicates
+% ------------------------------------------------------------
+\subsection{Error Detection Predicates（錯誤偵測述詞）}
+\label{subsub:ED}
+
+任意初始配置都可能造成節點變數之間的不一致。下列述詞對所有非根節點 \(v\in V\setminus\{r\}\) 定義，讓演算法得以偵測並傳播這類錯誤。我們依性質分成三組：\textbf{內部狀態不一致}、\textbf{權杖流違規} 與 \textbf{同步違規}。
+
+\paragraph*{內部狀態不一致}
+
+述詞 \(Er_{var}(v)\) 在節點持有 \(\rk_v=\bot\)，但其他變數並不符合重設狀態時成立——節點宣稱自己已重設，實際上並非如此：
+\begin{equation}
+    Er_{var}(v) \equiv \rk_v = \bot \wedge \neg \mathit{Reset}(v)
+    \label{eq:zhErRst}
+\end{equation}
+
+述詞 \(Er_{Root}(v)\) 偵測拓樸上的不可能：\(v\) 的某個鄰居持有秩 \(0^*\)（根的秩），但 \(v\) 卻有多於一個父節點，這意味著網路中存在多個根：
+\begin{equation}
+    Er_{Root}(v) \equiv \bigl(\exists u \in \Neig(v) \mid \rk_u = 0^*\bigr) \wedge |\Pa(v)| > 1
+\end{equation}
+
+述詞 \(Er_{noP}(v)\) 偵測有秩卻沒有父節點的節點——除了根以外，這在合法的 \(BFS^{\equiv 3}\) 結構中不可能發生：
+\begin{equation}
+    Er_{noP}(v) \equiv \rk_v \neq \bot \wedge \Pa(v) = \emptyset
+\end{equation}
+
+\paragraph*{權杖流違規}
+
+述詞 \(Er_{tp}(v)\) 在 \(v\) 的子節點持有權杖，但 \(v\) 並非剛送出權杖（也就是不處於送出後緊接的狀態 \(t_v=\mathit{wait}\wedge b_v=\bz\)）時成立。在同步執行中，子節點之所以持有權杖，只可能是父節點在上一 步送出。條件 \(\neg Er_{prg}(v)\) 排除已從鄰居接收到錯誤訊號的節點：
+\begin{equation}
+    Er_{tp}(v) \equiv \neg Er_{prg}(v) \wedge b_v \neq \top
+    \wedge \bigl(\exists u \in \Ch(v) \mid t_u = \mathit{true}\bigr)
+    \wedge \neg(t_v = \mathit{wait} \wedge b_v = \bz)
+    \label{eq:zhErtp}
+\end{equation}
+
+述詞 \(Er_{wait}(v)\) 偵測剛釋放權杖（狀態 \(t_v=\mathit{wait}\wedge b_v=\bz\)）卻仍有至少一個重設鄰居的節點。送出權杖之後，所有未排序的鄰居理應已透過 \(\Rjoin\) 加入結構；若仍有重設鄰居，即代表不一致：
+\begin{equation}
+    Er_{wait}(v) \equiv t_v = \mathit{wait} \wedge b_v = \bz
+    \wedge \bigl(\exists u \in \Neig(v) \mid \mathit{Reset}(u)\bigr)
+    \label{eq:zhErwait}
+\end{equation}
+
+\paragraph*{同步違規}
+
+由於網路同步，且我們建構的是 \(BFS^{\equiv 3}\)，所有與根距離相同的節點必須同時推進權杖傳遞步驟。因此要求：\(v\) 的所有父節點狀態相同（\(Er_P\)）、所有子節點狀態相同（\(Er_C\)）、所有兄弟節點與 \(v\) 狀態相同（\(Er_S\)）。此外，有子節點的有秩節點不得有重設鄰居（\(Er_{Re}\)），因為在正確的執行中，所有未排序鄰居會在權杖送達時加入結構：
+\begin{align}
+    Er_P(v) &\equiv \exists u, w \in \Pa(v) \mid b_u \neq b_w \vee t_u \neq t_w
+    \label{eq:zhErP}\\
+    Er_C(v) &\equiv \exists u, w \in \Ch(v) \mid b_u \neq b_w \vee t_u \neq t_w
+    \label{eq:zhErC}\\
+    Er_S(v) &\equiv \exists u \in \Si(v) \mid b_u \neq b_v \vee t_u \neq t_v
+    \label{eq:zhErS}\\
+    Er_{Re}(v) &\equiv \rk_v \neq \bot \wedge \Ch(v) \neq \emptyset
+    \wedge t_v \neq \mathit{true}
+    \wedge \bigl(\exists u \in \Neig(v) \mid \rk_u = \bot\bigr)
+    \label{eq:zhRtnd}
+\end{align}
+
+這四個子述詞組合成 \(Er_N(v)\)，並加上防護條件，以避免與 \(\mathit{TakeO}\) 及錯誤傳播機制互相干擾：
+\begin{equation}
+    Er_N(v) \equiv \neg Er_{prg}(v) \wedge b_v \neq \top \wedge \neg \mathit{TakeO}(v)
+    \wedge \bigl(Er_P(v) \vee Er_C(v) \vee Er_S(v) \vee Er_{Re}(v)\bigr)
+    \label{eq:zhErN}
+\end{equation}
+
+述詞 \(Er_\pi(v)\) 適用於重設節點：若重設節點的兩個鄰居秩相同，但狀態 \((b,t)\) 不同，權杖波即不一致，\(v\) 將只從其中一個收到權杖，破壞加入程序：
+\begin{equation}
+    Er_\pi(v) \equiv \mathit{Reset}(v) \wedge
+    \bigl(\exists u, w \in \Neig(v) \mid \rk_u = \rk_w
+    \wedge (b_u \neq b_w \vee t_u \neq t_w)\bigr)
+\end{equation}
+
+\paragraph*{錯誤傳播}
+
+當節點 \(v\) 設 \(b_v:=\top\) 以表示錯誤時，任何觀察到 \(b_u=\top\) 的鄰居也必須進入錯誤狀態。此串聯機制由 \(Er_{prg}(v)\) 捕捉，確保錯誤傳遍全網並觸發全域清理：
+\begin{equation}
+    Er_{prg}(v) \equiv \exists u \in \Neig(v) \mid b_u = \top
+    \label{eq:zhErprg}
+\end{equation}
+
+\paragraph*{全域錯誤述詞}
+
+只要上述任一條件成立，即視為節點 \(v\) 處於錯誤狀態：
+\begin{equation}
+    Er(v) \equiv Er_{Root}(v) \vee Er_{tp}(v) \vee Er_N(v) \vee Er_{noP}(v)
+    \vee Er_{prg}(v) \vee Er_\pi(v) \vee Er_{wait}(v)
+    \label{eq:zhEr}
+\end{equation}
+
+請注意 \(Er_{var}(v)\) 刻意不納入 \(Er(v)\)：當 \(\rk_v=\bot\) 時，節點 \(v\) 沒有任何家族關係，因此沒有結構性錯誤可向其鄰域傳播——這不同於 \(Er(v)\) 中其他依賴父、子或兄弟關係的述詞。
+
+\paragraph*{摘要}
+表~\ref{tab:errors-zh} 依類別整理各錯誤述詞，並標示其偵測的違規類型。
+
+\begin{table}[h]
+\centering
+\renewcommand{\arraystretch}{1.4}
+\begin{tabular}{l l l}
+\hline
+\textbf{述詞} & \textbf{類別} & \textbf{偵測到的違規} \\
+\hline
+\(Er_{var}(v)\)  & 內部狀態 & 未排序節點的變數不一致 \\
+\(Er_{Root}(v)\) & 內部狀態 & 鄰居為根 \(0^*\) 卻有多個父節點 \\
+\(Er_{noP}(v)\)  & 內部狀態 & 有秩節點卻無父節點 \\
+\hline
+\(Er_{tp}(v)\)   & 權杖流   & 子節點持有權杖但父節點未送出 \\
+\(Er_{wait}(v)\) & 權杖流   & 剛送出權杖但仍有重設鄰居 \\
+\hline
+\(Er_N(v)\)      & 同步     & 父、子或兄弟節點狀態不一致 \\
+\(Er_\pi(v)\)    & 同步     & 重設節點見到同秩鄰居狀態不一致 \\
+\hline
+\(Er_{prg}(v)\)  & 傳播     & 某鄰居處於錯誤狀態（\(b_u=\top\)） \\
+\hline
+\end{tabular}
+\caption{\(\mathtt{TokBinV}\) 的錯誤偵測述詞，依類別分組。}
+\label{tab:errors-zh}
+\end{table}
+
 \section{Correctness（正確性）}
 
 \subsection{Space Complexity（空間複雜度）}
