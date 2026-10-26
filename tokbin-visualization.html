@@ -12,6 +12,9 @@
   }
   *{box-sizing:border-box}
   html,body{margin:0;height:100%}
+  /* Column flex so the header keeps its natural height (it wraps on narrow
+     windows) and #main takes whatever vertical space is left. */
+  body{display:flex; flex-direction:column}
   body{
     font-family:"Segoe UI","Noto Sans TC",system-ui,-apple-system,sans-serif;
     background:var(--bg); color:var(--ink); font-size:14px;
@@ -22,17 +25,49 @@
   }
   header h1{font-size:17px;margin:0;font-weight:600}
   header .sub{font-size:12px;color:#cbd5e1}
+  /* Three columns.  A flex row (instead of a grid) so the right column can be
+     collapsed to zero width with a real width transition: the canvas then grows
+     into the freed space smoothly. */
   main{
-    display:grid; grid-template-columns:270px minmax(420px,1fr) 360px;
-    gap:12px; padding:12px; height:calc(100% - 52px); overflow:hidden;
+    display:flex; align-items:stretch;
+    padding:12px; flex:1 1 auto; min-height:0; overflow:hidden;
   }
+  #leftPanel{flex:0 0 270px; min-width:0; margin-right:12px}
+  #stagewrap{flex:1 1 auto; min-width:0}
+  /* Right panel: fixed outer width, fixed-width inner content, so collapsing the
+     outer box clips the content (it looks like the panel slides out to the right). */
+  #rightPanel{
+    flex:0 0 360px; min-width:0; overflow:hidden;
+    transition:flex-basis .34s cubic-bezier(.4,0,.2,1), margin-left .34s cubic-bezier(.4,0,.2,1),
+               padding .34s cubic-bezier(.4,0,.2,1), border-width .34s, opacity .22s ease;
+  }
+  #rightPanel .panel-inner{
+    width:336px; height:100%; min-height:0; display:flex; flex-direction:column;
+    transition:transform .34s cubic-bezier(.4,0,.2,1);
+  }
+  body.panel-hidden #rightPanel{
+    flex-basis:0; margin-left:0; padding-left:0; padding-right:0;
+    border-width:0; opacity:0; pointer-events:none;
+  }
+  body.panel-hidden #rightPanel .panel-inner{transform:translateX(48px)}
   @media (max-width:1200px){
-    main{grid-template-columns:1fr; height:auto; overflow:auto; align-items:start}
+    main{flex-direction:column; flex:0 0 auto; height:auto; overflow:auto}
     /* single column: let every card size to its own content instead of stretching
        to the tallest cell, so the table wrapper hugs the real table height */
-    .card{height:auto;align-self:start}
+    .card{height:auto}
+    /* canvas first on narrow screens: the controls are tall enough to push it
+       below the fold otherwise */
+    #stagewrap{order:1}
+    #leftPanel{flex:0 0 auto; margin-right:0; order:2}
+    #rightPanel{order:3}
+    /* no room to slide into: collapse instantly instead */
+    #rightPanel{flex:0 0 auto; width:100%; margin-left:0; overflow:visible; transition:none}
+    #rightPanel .panel-inner{width:100%; height:auto}
+    body.panel-hidden #rightPanel{display:none}
     .tblwrap,#log{flex:0 0 auto;height:auto;max-height:none}
-    svg#graph{height:auto;aspect-ratio:820/540}
+    /* a definite height: the base rule below sets height:100%, which needs a
+       fixed-height parent that the stacked column does not have */
+    #stagewrap svg#graph{height:min(56vh,430px)}
   }
   .card{
     background:var(--panel); border:1px solid var(--line); border-radius:10px;
@@ -43,6 +78,13 @@
   label.row{display:flex;justify-content:space-between;align-items:center;gap:8px;margin:7px 0;font-size:13px}
   select,input[type=range]{width:100%}
   select{padding:4px 6px;border:1px solid var(--line);border-radius:6px;background:#fff;font-size:13px}
+  /* Random seed: a short numeric field, deliberately quieter than the sliders. */
+  input.seed{
+    width:100%;padding:3px 6px;border:1px solid var(--line);border-radius:6px;
+    background:#fff;color:var(--ink);font-size:11.5px;
+    font-family:ui-monospace,Consolas,monospace;
+  }
+  input.seed::placeholder{color:#b6c2d2;font-family:"Segoe UI",system-ui,sans-serif}
   .btns{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px}
   button{
     flex:1 1 auto; padding:7px 10px; border:1px solid var(--line); border-radius:7px;
@@ -51,6 +93,29 @@
   button:hover{background:#f1f5f9}
   button.primary{background:#0f172a;color:#fff;border-color:#0f172a}
   button.primary:hover{background:#1e293b}
+  /* Top-right tools: the panel toggle and the DEMO presets travel together. */
+  header .hdr-tools{margin-left:auto; align-self:center; display:flex; align-items:center; gap:6px; flex:0 0 auto}
+  header .demo-menu{position:relative; flex:0 0 auto}
+  header .demo-btn{
+    flex:0 0 auto;
+    padding:3px 10px; font-size:10px; font-weight:800; letter-spacing:.06em;
+    color:#cbd5e1; background:rgba(255,255,255,.08);
+    border:1px solid rgba(255,255,255,.3); border-radius:6px;
+  }
+  header .demo-btn:hover{background:rgba(255,255,255,.2);color:#fff}
+  /* Dropdown of stage presets, opening under the DEMO button. */
+  .demo-list{
+    display:none; position:absolute; right:0; top:calc(100% + 6px); z-index:60;
+    min-width:120px; padding:4px; background:#fff; border:1px solid var(--line);
+    border-radius:8px; box-shadow:0 8px 22px rgba(15,23,42,.18);
+  }
+  .demo-menu.open .demo-list{display:block}
+  .demo-list button{
+    display:block; width:100%; flex:none; text-align:left;
+    padding:6px 10px; border:0; border-radius:5px; background:transparent;
+    font-size:12px; font-weight:500; color:var(--ink); white-space:nowrap;
+  }
+  .demo-list button:hover{background:#eef2f7}
   /* The controls share one row: icon on top, label below. */
   .ctrl-row{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:6px}
   .ctrl-row button{
@@ -72,38 +137,39 @@
   .stat{font-size:12.5px;color:var(--muted);display:flex;justify-content:space-between}
   .stat b{color:var(--ink)}
   #stagewrap{position:relative}
-  svg#graph{width:100%;height:100%;background:#fbfdff;border-radius:8px}
-  .edge{stroke:#cbd5e1;stroke-width:1.6}
-  .edge.sib{stroke:#e2e8f0;stroke-dasharray:4 4}
-  .edge.parent{stroke:#0d9488;stroke-width:3.2}
-  .edge.cross{stroke:#cbd5e1;stroke-width:1.6}
-  .port{font-size:8px;fill:#94a3b8;text-anchor:middle;pointer-events:none;
+  /* --s is set from JS to the drawing's scale factor: it keeps the node radius,
+     stroke widths and every label in the same proportion as the canvas shrinks
+     (a phone-sized canvas used to draw full-size circles). */
+  svg#graph{width:100%;height:100%;background:#fbfdff;border-radius:8px;--s:1}
+  .edge{stroke:#cbd5e1;stroke-width:calc(1.6px * var(--s))}
+  .edge.sib{stroke:#e2e8f0;stroke-dasharray:calc(4px * var(--s)) calc(4px * var(--s))}
+  .edge.parent{stroke:#0d9488;stroke-width:calc(3.2px * var(--s))}
+  .edge.cross{stroke:#cbd5e1;stroke-width:calc(1.6px * var(--s))}
+  .port{font-size:calc(8px * var(--s));fill:#94a3b8;text-anchor:middle;pointer-events:none;
         font-family:ui-monospace,Consolas,monospace;paint-order:stroke;
-        stroke:#fbfdff;stroke-width:2.6px;stroke-linejoin:round}
+        stroke:#fbfdff;stroke-width:calc(2.6px * var(--s));stroke-linejoin:round}
   .port.hi{fill:#0d9488;font-weight:700}
-  .node{stroke-width:2}
+  .node{stroke-width:calc(2px * var(--s))}
   .node.rk0{fill:#dbeafe;stroke:var(--rk0)}
   .node.rk1{fill:#dcfce7;stroke:var(--rk1)}
   .node.rk2{fill:#ffedd5;stroke:var(--rk2)}
-  .node.rkbot{fill:#e5e7eb;stroke:var(--bot);stroke-dasharray:4 3}
-  .node.err{fill:#fee2e2;stroke:var(--err);stroke-width:3.4}
-  .node.root{stroke:#b45309;stroke-width:3.4}
-  .node-id{font-size:12.5px;font-weight:700;text-anchor:middle;fill:#0f172a;pointer-events:none}
-  .info-box{fill:#ffffff;stroke:#e2e8f0;stroke-width:1}
-  .node-info{font-size:11px;text-anchor:middle;fill:#334155;pointer-events:none;font-family:ui-monospace,Consolas,monospace}
-  .tag{font-size:8.5px;font-weight:800;letter-spacing:.05em;pointer-events:none;font-family:"Segoe UI",system-ui,sans-serif}
-  .tag-err{fill:#dc2626}
-  .tag-reset{fill:#6b7280}
-  .tag-bg-err{fill:#fee2e2;stroke:#dc2626;stroke-width:.8}
-  .tag-bg-reset{fill:#f3f4f6;stroke:#9ca3af;stroke-width:.8}
-  .tok-badge{fill:#facc15;stroke:#a16207;stroke-width:1.4}
-  .done-box{fill:#f1f5f9;stroke:#94a3b8;stroke-width:1.6}
-  .done-title{font-size:15px;font-weight:800;fill:#475569;font-family:"Segoe UI",system-ui,sans-serif}
-  .done-sub{font-size:11px;fill:#64748b;font-family:"Segoe UI",system-ui,sans-serif}
-  .done-box.done{fill:#dcfce7;stroke:#16a34a}
-  .done-title.done{fill:#15803d}
-  .done-sub.done{fill:#166534}
-  .msg-label{font-size:9.5px;fill:#334155;font-family:ui-monospace,Consolas,monospace}
+  .node.rkbot{fill:#e5e7eb;stroke:var(--bot);stroke-dasharray:calc(4px * var(--s)) calc(3px * var(--s))}
+  /* The root keeps the rk=0 blue; only its square shape and thicker border set it apart. */
+  .node.root{stroke:var(--rk0);stroke-width:calc(3.4px * var(--s))}
+  /* b = top: the whole node turns red, whatever its rank */
+  .node.err{fill:#dc2626;stroke:#dc2626;stroke-width:calc(2.8px * var(--s));stroke-dasharray:none}
+  .err-ring{fill:none;stroke:#dc2626;stroke-width:calc(1.8px * var(--s));
+            stroke-dasharray:calc(3.2px * var(--s)) calc(2.6px * var(--s))}
+  .node-rk{font-size:calc(23px * var(--s));font-weight:400;text-anchor:middle;
+           fill:#0f172a;pointer-events:none;font-family:"Segoe UI",system-ui,sans-serif}
+  .node-rk.inv{fill:#ffffff}
+  .node-name{font-size:calc(8.5px * var(--s));font-weight:700;fill:#94a3b8;pointer-events:none;
+             font-family:ui-monospace,Consolas,monospace;paint-order:stroke;
+             stroke:#fbfdff;stroke-width:calc(2.4px * var(--s));stroke-linejoin:round}
+  .node-name.root{fill:#b45309}
+  .node-name.mid{text-anchor:middle}
+  .tok-badge{fill:#facc15;stroke:#a16207;stroke-width:calc(1.4px * var(--s))}
+  .msg-label{font-size:calc(9.5px * var(--s));fill:#334155;font-family:ui-monospace,Consolas,monospace}
   .legend-txt{font-size:9.5px;fill:#475569;font-family:"Segoe UI",system-ui,sans-serif}
   .tblwrap{overflow:auto;flex:1;min-height:120px;border-top:1px solid var(--line)}
   table{border-collapse:collapse;width:100%;font-size:12px;font-family:ui-monospace,Consolas,monospace}
@@ -142,6 +208,8 @@
   .legendbox .lg{display:flex;align-items:center;gap:6px;font-size:10.5px;color:#475569;line-height:1.2}
   .legendbox .sw{width:11px;height:11px;flex:none;border:1.4px solid;border-radius:3px}
   .legendbox .sw.round{border-radius:50%}
+  .legendbox .sw.square{border-radius:1px}
+  .legendbox .sw.dash{border-style:dashed}
   details summary{cursor:pointer;font-size:12.5px;color:var(--muted);outline:none}
 </style>
 </head>
@@ -149,14 +217,30 @@
 <header>
   <h1>TokBin Step-by-step Visualization</h1>
   <span class="sub">Algorithm <b>TokBinR</b> (root <i>r</i>) + <b>TokBinV</b> (node <i>v&ne;r</i>) &middot; semi-uniform, synchronous, self-stabilizing BFS<sup>&equiv;3</sup> construction</span>
+  <div class="hdr-tools">
+    <button id="btnPanel" class="demo-btn" aria-pressed="false"
+            title="Hide / show the Local variables + log panel">VARS &#9662;</button>
+    <div class="demo-menu" id="demoMenu">
+      <button id="btnDemo" class="demo-btn" aria-haspopup="true" aria-expanded="false" title="Stage presets: seed 666, N = 24, grid, 2000 ms per step">DEMO &#9662;</button>
+      <div class="demo-list" role="menu">
+        <button role="menuitem" data-preset="reset">Case 1 &middot; All reset</button>
+        <button role="menuitem" data-preset="inject">Case 2 &middot; Injection</button>
+        <button role="menuitem" data-preset="cycle">Case 3 &middot; Cycle</button>
+      </div>
+    </div>
+  </div>
 </header>
 
 <main>
   <!-- ============================ Left: controls ============================ -->
-  <aside class="card">
+  <aside class="card" id="leftPanel">
     <h2>Controls</h2>
 
-    <label class="row"><span>Total nodes N</span><b id="nVal">10</b></label>
+    <label class="row" style="margin-top:0"><span>Random seed</span></label>
+    <input type="text" id="seedInput" class="seed" inputmode="numeric" autocomplete="off"
+           spellcheck="false" placeholder="empty = random">
+
+    <label class="row" style="margin-top:10px"><span>Total nodes N</span><b id="nVal">10</b></label>
     <input type="range" id="nRange" min="3" max="24" value="10">
 
     <label class="row" style="margin-top:10px"><span>Topology</span></label>
@@ -166,7 +250,7 @@
       <button data-topo="grid"><span class="ic">&#9638;</span><span class="lbl">Grid</span></button>
       <button data-topo="tree"><span class="ic">&#127794;</span><span class="lbl">Tree</span></button>
       <button data-topo="random" class="sel"><span class="ic">&#127922;</span><span class="lbl">Random</span></button>
-      <button data-topo="full"><span class="ic">&#11042;</span><span class="lbl">Full</span></button>
+      <button data-topo="tri"><span class="ic">&#9650;</span><span class="lbl">Tri</span></button>
     </div>
 
     <div style="display:none">
@@ -177,8 +261,8 @@
     <label class="row" style="margin-top:10px"><span>Initial configuration</span></label>
     <select id="initSel">
       <option value="reset">All reset</option>
-      <option value="ideal">Ideal ranks</option>
-      <option value="randomRank" selected>Random ranks</option>
+      <option value="ideal" selected>BFS</option>
+      <option value="randomRank">Random ranks</option>
       <option value="randomAll">Random error</option>
     </select>
 
@@ -193,10 +277,6 @@
       <button id="btnStep"><span class="ic">&#9197;</span><span class="lbl">Next</span></button>
     </div>
 
-    <label class="chk" style="margin-top:9px"><input type="checkbox" id="cTags" checked><span>Show text tags</span></label>
-
-    <!-- Display options default to on; kept as (hidden) state holders so the
-         simulation still reads app.showOffers / showMsgContent / showBfs. -->
     <div class="chk" style="display:none"><input type="checkbox" id="cOffers" checked><label for="cOffers">Show every token offer (incl. ignored)</label></div>
     <div class="chk" style="display:none"><input type="checkbox" id="cMsg" checked><label for="cMsg">Animate message contents</label></div>
     <div class="chk" style="display:none"><input type="checkbox" id="cBfs" checked><label for="cBfs">Highlight BFS parent edges</label></div>
@@ -247,7 +327,8 @@
   </section>
 
   <!-- ============================ Right: variables + log ============================ -->
-  <aside class="card">
+  <aside class="card" id="rightPanel">
+   <div class="panel-inner">
     <h2>Local variables</h2>
     <div class="tblwrap">
       <table id="varTable">
@@ -258,6 +339,7 @@
     <div class="sep"></div>
     <h2>Messages / event log</h2>
     <div id="log"></div>
+   </div>
   </aside>
 </main>
 
@@ -269,9 +351,54 @@ const SVGNS='http://www.w3.org/2000/svg';
 const T_FALSE=0, T_TRUE=1, T_WAIT=2;   // 0=false, 1=true, 2=wait
 const RBOT='bot';                       // rk = perp
 const BTOP='top';                       // b  = top
-const TOTW=820, TOTH=540;
+const PADX=96, PADT=76, PADB=76;       // reference margins, scaled by the canvas (see canvasPad)
+/* The drawing is laid out in viewBox units and the viewBox is kept equal to the
+   rendered pixel size of the canvas (see fitCanvas), so the network always fills
+   the available width AND height and nothing is scaled down or cropped. */
+let TOTW=820, TOTH=540;
+/* Canvas-derived scale: 1.0 at the original 820x540 design, smaller on a phone.
+   Node radius, font sizes, margins and every badge derive from it, so the whole
+   drawing keeps its proportions at any canvas size. */
+let SVG_S=1;
+function updateScale(){
+  SVG_S=Math.max(0.3, Math.min(1, Math.min(TOTW/820, TOTH/540)));
+  return SVG_S;
+}
+/* Margins scale with the canvas so opposite sides stay equal at any size. */
+function canvasPad(){
+  const k=TOTW/820;
+  return { padX:Math.max(22, PADX*k), padT:Math.max(20, PADT*k), padB:Math.max(20, PADB*k) };
+}
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
-const rnd=n=>Math.floor(Math.random()*n);
+
+/* ---------- Seeded randomness -------------------------------------------
+   app.rand is the ONLY source of randomness of the page.  It is Math.random
+   when the seed field is empty, and a small deterministic generator when a
+   seed is typed in, so the same seed always rebuilds the same network.
+   ------------------------------------------------------------------------ */
+function hashSeed(str){
+  // FNV-1a, 32 bit; any text is accepted, digits or not
+  let h=2166136261>>>0;
+  for(let i=0;i<str.length;i++){ h^=str.charCodeAt(i); h=Math.imul(h,16777619)>>>0; }
+  return h>>>0;
+}
+function mulberry32(a){
+  return function(){
+    a=(a+0x6D2B79F5)>>>0;
+    let t=a;
+    t=Math.imul(t^(t>>>15), t|1);
+    t^=t+Math.imul(t^(t>>>7), t|61);
+    return ((t^(t>>>14))>>>0)/4294967296;
+  };
+}
+/* Restart the stream for one phase ('graph' = nodes/edges/ports,
+   'init' = initial configuration), so a phase is reproducible on its own:
+   pressing "Reset" or picking another initial configuration does not shift
+   the numbers of the topology, and vice versa. */
+function seedRng(tag){
+  const s=String(app.seed||'').trim();
+  app.rand = s ? mulberry32(hashSeed(s+'|'+tag)) : Math.random;
+}
 
 function setPlayLabel(icon,text){
   const b=document.getElementById('btnPlay');
@@ -282,11 +409,15 @@ function setPlayLabel(icon,text){
 }
 
 const app={
-  N:10, topology:'random', initMode:'randomRank', stepMs:800, density:100,
+  N:10, topology:'random', initMode:'ideal', stepMs:800, density:100,
+  seed:'', rand:Math.random,
   playing:false, busy:false, step:0, hist:[],
-  showOffers:true, showMsgContent:true, showBfs:true, showTags:true,
-  G:null, svg:null, edgeLayer:null, portLayer:null, msgLayer:null, nodeLayer:null, doneLayer:null, legendLayer:null
+  showOffers:true, showMsgContent:true, showBfs:true,
+  G:null, svg:null, labelLayer:null, edgeLayer:null, msgLayer:null, nodeLayer:null, doneLayer:null, legendLayer:null
 };
+
+/* Every random draw of the page goes through app.rand (see seedRng). */
+const rnd=n=>Math.floor(app.rand()*n);
 
 /* ---------- Labels ---------- */
 function rkLabel(v){ return v.isRoot ? '0*' : (v.rk===RBOT ? '⊥' : String(v.rk)); }
@@ -313,15 +444,26 @@ function buildGraph(){
     if(N===2){ ed.length=0; ed.push([0,1]); }
   }
   else if(t==='grid'){
-    const cols=Math.ceil(Math.sqrt(N));    for(let i=0;i<N;i++){ const r=Math.floor(i/cols), c=i%cols;
-      if(c+1<cols && i+1<N) ed.push([i,i+1]);
-      if(i+cols<N) ed.push([i,i+cols]);
+    const gcols=rowCols(N).cols;   // same split as the layout, fixed by N
+    for(let i=0;i<N;i++){ const r=Math.floor(i/gcols), c=i%gcols;
+      if(c+1<gcols && i+1<N) ed.push([i,i+1]);
+      if(i+gcols<N) ed.push([i,i+gcols]);
     }
   }
   else if(t==='tree'){ for(let i=1;i<N;i++) ed.push([i,rnd(i)]); }
-  else if(t==='full'){
-    // complete graph K_N
-    for(let i=0;i<N;i++) for(let j=i+1;j<N;j++) ed.push([i,j]);
+  else if(t==='tri'){
+    // Triangular lattice: the nodes sit on the vertices of equilateral triangles,
+    // so each one links to at most six lattice neighbours (left/right, and the two
+    // nearest nodes in the row above and the row below).
+    const {rows,cols}=latticeShape(N);
+    const idx=(r,c)=> (r>=0 && r<rows && c>=0 && c<cols) ? r*cols+c : -1;
+    const link=(a,b)=>{ if(a>=0 && a<N && b>=0 && b<N) ed.push([a,b]); };
+    for(let i=0;i<N;i++){
+      const r=Math.floor(i/cols), c=i%cols;
+      link(i, idx(r,c+1));
+      if(r%2===0){ link(i, idx(r+1,c-1)); link(i, idx(r+1,c)); }
+      else       { link(i, idx(r+1,c));   link(i, idx(r+1,c+1)); }
+    }
   }
   else { // random
     for(let i=1;i<N;i++) ed.push([i,rnd(i)]);
@@ -345,7 +487,7 @@ function buildGraph(){
     G.nodes[i].port=p;
   }
 
-  // BFS distances (used only for layout and the "ideal rank" initial configuration)
+  // BFS distances (used only for layout and the "BFS" initial configuration)
   const d=Array(N).fill(Infinity); d[0]=0; const q=[0];
   while(q.length){ const x=q.shift(); for(const u of G.adj[x]) if(d[u.id]===Infinity){ d[u.id]=d[x]+1; q.push(u.id); } }
   G.nodes.forEach(v=>v.dist=d[v.id]);
@@ -398,30 +540,71 @@ function applyDensity(G){
                   treeOnly:[...treeKeys].length };
 }
 
+/* Rows x columns of a grid/lattice is a property of N alone, never of the canvas
+   shape: take the most square split (smallest |rows-cols|), and among those the one
+   whose product is closest to N.  A block of 4+ nodes is never a single row or a
+   single column. */
+function rowCols(N){
+  let best=null;
+  for(let rows=1; rows<=N; rows++){
+    const cols=Math.ceil(N/rows);
+    if(N>=4 && (rows<2 || cols<2)) continue;
+    const d=Math.abs(rows-cols), excess=rows*cols-N;
+    if(!best || d<best.d || (d===best.d && excess<best.excess))
+      best={rows,cols,excess,d};
+  }
+  return {rows:best.rows, cols:best.cols};
+}
+/* Triangular lattice geometry, shared by the edge builder and the layout so both
+   agree on the row/column split.  Rows are 60-degree triangles stacked apart by
+   sqrt(3)/2 of the column pitch, and every odd row is offset by half a column.
+   The point set is centred on both axes with the same margin on opposite sides. */
+function latticeBand(){
+  const {padX,padT}=canvasPad();
+  const innerW=TOTW-2*padX, innerH=TOTH-2*padT;
+  return {innerW, innerH, cx:TOTW/2, cy:TOTH/2};
+}
+function latticeShape(N){
+  const {rows,cols}=rowCols(N);
+  const {innerW,innerH}=latticeBand();
+  const spanU=(cols-1)+(rows>1?0.5:0);
+  const spanV=(rows-1)*Math.sqrt(3)/2;
+  const dx=Math.min(innerW/Math.max(1,spanU), innerH/Math.max(1,spanV));
+  return {rows,cols,dx,dy:dx*Math.sqrt(3)/2};
+}
+
 function layout(G){
   const N=G.nodes.length, W=TOTW, H=TOTH;
-  const padX=46, padT=30, padB=36;   // banner + legend now live outside the canvas
+  const {padX,padT,padB}=canvasPad();
   const innerW=W-2*padX, innerH=H-padT-padB;
   const t=G.topology;
+  /* Node radius: never larger than its share of the neighbouring-node spacing
+     (so circles cannot touch) and never larger than the design radius scaled to
+     this canvas (so a phone does not get desktop-sized circles). */
+  const fit=(gap,cap)=>Math.max(4, Math.min(cap*SVG_S, gap*0.30));
   if(t==='chain'){
     const rows=Math.max(1,Math.ceil(N/10)), cols=Math.ceil(N/rows);
+    const colGap=(cols===1)?innerW:innerW/(cols-1);
+    const rowGap=(rows===1)?innerH:innerH/(rows-1);
     for(let i=0;i<N;i++){
       const row=Math.floor(i/cols); let col=i%cols; if(row%2===1) col=cols-1-col;
       const v=G.nodes[i];
-      v.x = (cols===1)? W/2 : padX + innerW*col/(cols-1);
-      v.y = (rows===1)? H/2 : padT + innerH*row/(rows-1);
+      v.x = (cols===1)? W/2 : padX + colGap*col;
+      v.y = (rows===1)? padT+innerH/2 : padT + rowGap*row;
     }
-    G.radius = (rows===1) ? Math.max(13, Math.min(22, innerW/Math.max(1,N-1)*0.34)) : 19;
+    G.radius = fit(Math.min(colGap,rowGap), 19);
   } else if(t==='grid'){
-    const cols=Math.ceil(Math.sqrt(N)), rows=Math.ceil(N/cols);
-    // extra side padding: the (rk, t, b) pill hangs off each node's bottom-right corner
-    const side=padX+48, gw=W-2*side;
+    const {rows,cols}=rowCols(N);   // fixed by N, not by the canvas shape
+    // One spacing for both axes, so every cell stays square; the block is centred.
+    const gap=Math.min(cols>1?innerW/(cols-1):innerW, rows>1?innerH/(rows-1):innerH);
+    const gw=(cols-1)*gap, gh=(rows-1)*gap;
+    const x0=(W-gw)/2, y0=padT+(innerH-gh)/2;
     for(let i=0;i<N;i++){
       const r=Math.floor(i/cols), c=i%cols, v=G.nodes[i];
-      v.x = (cols===1)? W/2 : side + gw*c/(cols-1);
-      v.y = (rows===1)? H/2 : padT + innerH*r/(rows-1);
+      v.x = (cols===1)? W/2 : x0 + gap*c;
+      v.y = (rows===1)? padT+innerH/2 : y0 + gap*r;
     }
-    G.radius=20;
+    G.radius = fit(gap, 20);
   } else if(t==='tree'){
     // Layered layout: row 0 holds the root, row d holds the nodes at BFS depth d.
     const byDepth=[];
@@ -439,7 +622,7 @@ function layout(G){
     // Inside every row, order left-to-right by parent number, then by own number.
     byDepth.forEach(row=>row.sort((a,b)=>(pid(a)-pid(b))||(a.id-b.id)));
     const rows=byDepth.length;
-    const rowGap = rows>1 ? innerH/(rows-1) : 0;
+    const rowGap = rows>1 ? innerH/(rows-1) : innerH;
     byDepth.forEach((row,d)=>{
       const n=row.length;
       row.forEach((v,k)=>{
@@ -448,19 +631,43 @@ function layout(G){
       });
     });
     const maxRow=Math.max(1,...byDepth.map(r=>r.length));
-    G.radius = Math.max(12, Math.min(20, innerW/maxRow*0.32, rows>1?rowGap*0.42:20));
+    G.radius = fit(Math.min(innerW/maxRow, rowGap), 20);
+  } else if(t==='tri'){
+    // Vertices of equilateral triangles: odd rows are shifted by half a column and
+    // the row pitch is sqrt(3)/2 of the column pitch.  The point set is centred in
+    // the canvas on both axes, with the same margin on opposite sides.
+    const {rows,cols,dx,dy}=latticeShape(N);
+    const B=latticeBand();
+    const pts=G.nodes.map((v,i)=>{
+      const r=Math.floor(i/cols), c=i%cols;
+      return {v, u:c+((r%2)?0.5:0), w:r};
+    });
+    const uMin=Math.min(...pts.map(p=>p.u)), uMax=Math.max(...pts.map(p=>p.u));
+    const cu=(uMin+uMax)/2, cw=(rows-1)/2;
+    for(const p of pts){
+      p.v.x = B.cx + (p.u-cu)*dx;
+      p.v.y = B.cy + (p.w-cw)*dy;
+    }
+    G.radius = fit(Math.min(dx,dy), 20);
   } else {
-    // Ring layouts (ring, fully connected, random graph) follow id order
-    // 0-1-2-...-(N-1); the radial layouts group by BFS distance.
-    const order = (t==='ring' || t==='full' || t==='random')
+    // Ring layouts (ring, random graph) follow id order 0-1-2-...-(N-1);
+    // the radial layouts group by BFS distance around a centred circle whose
+    // radius leaves room for one node ring plus its stroke on every side.
+    const order = (t==='ring' || t==='random')
       ? G.nodes.map(v=>v.id)
       : [...G.nodes].sort((a,b)=>(a.dist-b.dist)||(a.id-b.id)).map(v=>v.id);
-    const cx=W/2, cy=padT+innerH/2, R=Math.min(innerW,innerH)/2;
+    const R0=Math.min(innerW,innerH)/2;
+    const arcGap=2*R0*Math.sin(Math.PI/N);
+    const r=fit(arcGap, 22);
+    const R=Math.max(20, R0-r-3);
+    const cx=W/2, cy=H/2;
     order.forEach((id,k)=>{ const a=-Math.PI/2 + 2*Math.PI*k/N; G.nodes[id].x=cx+R*Math.cos(a); G.nodes[id].y=cy+R*Math.sin(a); });
-    G.radius=Math.max(14, Math.min(22, R*Math.sin(Math.PI/N)*0.85));
+    G.radius=r;
   }
+  /* All SVG typography and badge sizes are expressed in `--s`, i.e. in units of
+     the node radius, so text can never outgrow its circle. */
+  app.svg && app.svg.style.setProperty('--s',(G.radius/20).toFixed(3));
 }
-
 /* =====================================================================
    Predicates
    ===================================================================== */
@@ -632,12 +839,36 @@ function computeDone(G){
 /* =====================================================================
    Rendering
    ===================================================================== */
+/* Match the viewBox to the real canvas box.  With preserveAspectRatio=meet a
+   viewBox of exactly the element size means scale = 1: the network spreads over
+   the whole canvas and every node keeps its full radius, so nothing is cropped. */
+function fitCanvas(){
+  const svg=app.svg;
+  if(!svg) return false;
+  const r=svg.getBoundingClientRect();
+  if(!r.width || !r.height) return false;
+  const w=Math.max(240, Math.ceil(r.width)), h=Math.max(180, Math.ceil(r.height));
+  if(w===TOTW && h===TOTH){ updateScale(); return false; }
+  TOTW=w; TOTH=h;
+  updateScale();
+  return true;
+}
+/* Re-run the layout after a resize (window, or the right panel opening/closing). */
+function relayout(){
+  if(!app.G) return;
+  fitCanvas();
+  layout(app.G);
+  drawGraph();
+}
 function drawGraph(){
   const G=app.G, svg=app.svg;
+  const u=G.radius/20;                  // one design unit, in node-radius terms
   svg.innerHTML='';
   svg.setAttribute('viewBox',`0 0 ${TOTW} ${TOTH}`);
+  // Labels (port numbers, node names) paint *before* the arrows so the edges
+  // stay readable on top of them.
+  app.labelLayer=document.createElementNS(SVGNS,'g'); svg.appendChild(app.labelLayer);
   app.edgeLayer=document.createElementNS(SVGNS,'g'); svg.appendChild(app.edgeLayer);
-  app.portLayer=document.createElementNS(SVGNS,'g'); svg.appendChild(app.portLayer);
   app.msgLayer =document.createElementNS(SVGNS,'g'); svg.appendChild(app.msgLayer);
   app.nodeLayer=document.createElementNS(SVGNS,'g'); svg.appendChild(app.nodeLayer);
   app.doneLayer=document.createElementNS(SVGNS,'g'); svg.appendChild(app.doneLayer);
@@ -651,8 +882,8 @@ function drawGraph(){
       const l=document.createElementNS(SVGNS,'line');
       l.setAttribute('x1',G.nodes[a].x); l.setAttribute('y1',G.nodes[a].y);
       l.setAttribute('x2',G.nodes[b].x); l.setAttribute('y2',G.nodes[b].y);
-      l.setAttribute('stroke','#f1f5f9'); l.setAttribute('stroke-width','1.4');
-      l.setAttribute('stroke-dasharray','2 6');
+      l.setAttribute('stroke','#f1f5f9'); l.setAttribute('stroke-width',1.4*u);
+      l.setAttribute('stroke-dasharray',`${2*u} ${6*u}`);
       gl.appendChild(l);
     }
     app.edgeLayer.appendChild(gl);
@@ -680,7 +911,7 @@ function drawGraph(){
       const t=document.createElementNS(SVGNS,'text');
       t.setAttribute('class','port');
       t.textContent=from.port[to.id];
-      app.portLayer.appendChild(t);
+      app.labelLayer.appendChild(t);
       return t;
     };
     const pA=mkPort(na,nb), pB=mkPort(nb,na);
@@ -692,94 +923,62 @@ function drawGraph(){
   for(const v of G.nodes){
     const g=document.createElementNS(SVGNS,'g');
 
-    const c=document.createElementNS(SVGNS,'circle');
-    c.setAttribute('cx',v.x); c.setAttribute('cy',v.y); c.setAttribute('r',R); c.setAttribute('class','node');
+    // Root is drawn as a square (it plays a different role); every other node is
+    // a circle.
+    let shape;
+    if(v.isRoot){
+      const h=R*0.95;
+      shape=document.createElementNS(SVGNS,'rect');
+      shape.setAttribute('x',v.x-h); shape.setAttribute('y',v.y-h);
+      shape.setAttribute('width',2*h); shape.setAttribute('height',2*h);
+      shape.setAttribute('rx',2*u);
+    } else {
+      shape=document.createElementNS(SVGNS,'circle');
+      shape.setAttribute('cx',v.x); shape.setAttribute('cy',v.y); shape.setAttribute('r',R);
+    }
+    shape.setAttribute('class','node');
 
-    // (rk, t, b) read-out, on an opaque white background; placement depends on layout
-    const txt=`(${rkLabel(v)}, ${tShort(v)}, ${bLabel(v)})`;
-    const bw=Math.max(38, txt.length*6.35+9), bh=15;
-    const pl=infoPlacement(v,R,bw);
-    const box=document.createElementNS(SVGNS,'rect');
-    box.setAttribute('x',pl.bx); box.setAttribute('y',pl.by);
-    box.setAttribute('width',bw); box.setAttribute('height',bh); box.setAttribute('rx',4);
-    box.setAttribute('class','info-box');
-    const info=document.createElementNS(SVGNS,'text');
-    info.setAttribute('x',pl.tx); info.setAttribute('y',pl.ty); info.setAttribute('class','node-info');
-    info.textContent=txt;
+    // b = top alarm ring, just outside the node for as long as the error lasts
+    const ring=document.createElementNS(SVGNS,'circle');
+    ring.setAttribute('cx',v.x); ring.setAttribute('cy',v.y); ring.setAttribute('r',R+4*u);
+    ring.setAttribute('class','err-ring'); ring.style.display='none';
 
-    // top-centre status tag: red ERROR (b = top) or grey RESET (Reset(v))
-    // The two are mutually exclusive, so they share one slot.
-    const mkTag=(bgCls,txtCls,label)=>{
-      const gg=document.createElementNS(SVGNS,'g');
-      const w=label.length*5.6+8;
-      const rect=document.createElementNS(SVGNS,'rect');
-      rect.setAttribute('width',w); rect.setAttribute('height',11); rect.setAttribute('rx',2.5);
-      rect.setAttribute('class',bgCls);
-      const tt=document.createElementNS(SVGNS,'text');
-      tt.setAttribute('x',w/2); tt.setAttribute('y',8);
-      tt.setAttribute('text-anchor','middle'); tt.setAttribute('class','tag '+txtCls);
-      tt.textContent=label;
-      gg.append(rect,tt);
-      gg.style.display='none';
-      return {gg,w};
-    };
-    const errTag=mkTag('tag-bg-err','tag-err','ERROR');
-    const resetTag=mkTag('tag-bg-reset','tag-reset','RESET');
+    // Inside the node: the rank itself, big and bold.
+    const rk=document.createElementNS(SVGNS,'text');
+    rk.setAttribute('x',v.x); rk.setAttribute('y',v.y);
+    rk.setAttribute('dominant-baseline','central'); rk.setAttribute('class','node-rk');
+
+    // Outside, below the node: the node's own name, small. In the triangular
+    // lattice the names are centred under the node; elsewhere they sit at the
+    // bottom-right so neighbouring nodes' names stay apart.
+    const mid = G.topology==='tri';
+    const nm=document.createElementNS(SVGNS,'text');
+    nm.setAttribute('x', mid ? v.x : v.x+R*0.55); nm.setAttribute('y',v.y+R+7.5*u);
+    nm.setAttribute('class','node-name'+(mid?' mid':'')+(v.isRoot?' root':''));
+    nm.textContent=v.name;
+    app.labelLayer.appendChild(nm);
 
     // top-right yellow dot: the node currently holds the token (t = true)
     const tok=document.createElementNS(SVGNS,'circle');
-    tok.setAttribute('cx',v.x+R*0.68); tok.setAttribute('cy',v.y-R*0.68); tok.setAttribute('r',6);
+    tok.setAttribute('cx',v.x+R*0.68); tok.setAttribute('cy',v.y-R*0.68); tok.setAttribute('r',R*0.30);
     tok.setAttribute('class','tok-badge'); tok.style.display='none';
 
-    const idt=document.createElementNS(SVGNS,'text');
-    idt.setAttribute('x',v.x); idt.setAttribute('y',v.y+4); idt.setAttribute('class','node-id'); idt.textContent=v.name;
-
-    g.append(c,box,info,idt,tok,errTag.gg,resetTag.gg);
+    g.append(shape,ring,rk,tok);
     app.nodeLayer.appendChild(g);
-    G.nodeEls.push({g,c,box,info,idt,tok,errTag,resetTag,R});
+    G.nodeEls.push({g,shape,ring,rk,nm,tok,R});
   }
   updateView();
 }
 
-/* ---------------------------------------------------------------------
-   Where the (rk, t, b) read-out sits, by layout shape:
-     chain  -> straight below the node
-     grid   -> 45 deg bottom-right (flipped near the canvas edges to stay in view)
-     radial -> nodes on the left half of the canvas put it on their left,
-               nodes on the right half put it on their right
-   Returns the rect's top-left corner plus the text anchor point.
-   --------------------------------------------------------------------- */
-function infoPlacement(v,R,bw){
-  const bh=15, t=app.topology;
-  if(t==='chain'){
-    const y=v.y+R+6;
-    return {bx:v.x-bw/2, by:y, tx:v.x, ty:y+11};
-  }
-  if(t==='grid'){
-    // corner of the box pinned on the 45 deg diagonal, just clear of the circle
-    const k=(R+8)*Math.SQRT1_2;
-    const bx=v.x+k, by=v.y+k;
-    return {bx, by, tx:bx+bw/2, ty:by+11};
-  }
-  // radial layouts (cycle, random tree, random graph)
-  const bh2=bh/2;
-  if(Math.abs(v.x-TOTW/2) < bh2+2){          // sits on the vertical centre line
-    const y=(v.y < TOTH/2) ? v.y-R-8-bh : v.y+R+8;
-    return {bx:v.x-bw/2, by:y, tx:v.x, ty:y+11};
-  }
-  const d=R+7;
-  if(v.x < TOTW/2) return {bx:v.x-d-bw, by:v.y-bh/2, tx:v.x-d-bw/2, ty:v.y+4};
-  return {bx:v.x+d, by:v.y-bh/2, tx:v.x+d+bw/2, ty:v.y+4};
-}
-
 /* --------- Legend: rendered as HTML in the left panel (out of the canvas) --------- */
 const LEGEND=[
-  {bg:'#dbeafe',bd:'#2563eb', bw:1.4, r:2.5, txt:'rk=0'},
-  {bg:'#dcfce7',bd:'#16a34a', bw:1.4, r:2.5, txt:'rk=1'},
-  {bg:'#ffedd5',bd:'#ea580c', bw:1.4, r:2.5, txt:'rk=2'},
-  {bg:'#e5e7eb',bd:'#6b7280', bw:1.4, r:2.5, txt:'rk=\u22A5 / RESET'},
-  {bg:'#fee2e2',bd:'#dc2626', bw:1.4, r:2.5, txt:'b=\u22A4 / ERROR'},
-  {bg:'#facc15',bd:'#a16207', bw:1,   r:6,   txt:'TOKEN held'}
+  {bg:'#dbeafe',bd:'#2563eb', bw:2,   shape:'square', txt:'root r (square)'},
+  {bg:'#dbeafe',bd:'#2563eb', bw:1.4, txt:'rk=0'},
+  {bg:'#dcfce7',bd:'#16a34a', bw:1.4, txt:'rk=1'},
+  {bg:'#ffedd5',bd:'#ea580c', bw:1.4, txt:'rk=2'},
+  {bg:'#e5e7eb',bd:'#6b7280', bw:1.4, shape:'dash', txt:'rk=\u22A5 / RESET'},
+  {bg:'#dc2626',bd:'#dc2626', bw:1.6, txt:'b=\u22A4 / ERROR'},
+  {bg:'#facc15',bd:'#a16207', bw:1,   shape:'round', txt:'TOKEN held'}
 ];
 function drawLegend(){
   const L=document.getElementById('legendBox');
@@ -787,8 +986,8 @@ function drawLegend(){
   L.innerHTML='';
   LEGEND.forEach(it=>{
     const row=document.createElement('div'); row.className='lg';
-    const sw=document.createElement('span'); sw.className='sw'+(it.r>4?' round':'');
-    sw.style.background=it.bg; sw.style.borderColor=it.bd;
+    const sw=document.createElement('span'); sw.className='sw'+(it.shape?' '+it.shape:'');
+    sw.style.background=it.bg; sw.style.borderColor=it.bd; sw.style.borderWidth=it.bw+'px';
     const tx=document.createElement('span'); tx.textContent=it.txt;
     row.append(sw,tx); L.appendChild(row);
   });
@@ -807,10 +1006,16 @@ function renderDoneBanner(){
   box.classList.toggle('done',done);
   ic.className='db-ic '+(done?'ok':'run');
   ic.textContent = done ? '\u2713' : '\u25D6';
-  title.textContent = done ? 'COMPLETE' : 'RUNNING';
-  sub.textContent = done
-    ? `BFS\u22613 built at step ${G.doneStep ?? app.step}`
-    : `Step ${app.step} \u00B7 BFS\u22613 not stable yet`;
+  // A completed run is non-silent: tokens keep circulating, so a "done" badge
+  // must not freeze the counter. It reads COMPLETE on the step where the tree
+  // became correct and STABLE afterwards, always with the current step.
+  const late = done && app.step > (G.doneStep ?? app.step);
+  title.textContent = done ? (late ? 'STABLE' : 'COMPLETE') : 'RUNNING';
+  sub.textContent = !done
+    ? `Step ${app.step} \u00B7 BFS\u22613 not stable yet`
+    : late
+      ? `BFS\u22613 built at step ${G.doneStep} \u00B7 step ${app.step}`
+      : `BFS\u22613 built at step ${G.doneStep ?? app.step}`;
 }
 
 function updateView(){
@@ -820,37 +1025,21 @@ function updateView(){
     let cls='node';
     cls += v.rk===RBOT ? ' rkbot' : ' rk'+v.rk;
     if(v.isRoot) cls+=' root';
-    if(v.b===BTOP) cls+=' err';
-    e.c.setAttribute('class',cls);
-
-    const txt=`(${rkLabel(v)}, ${tShort(v)}, ${bLabel(v)})`;
-    e.info.textContent=txt;
-    const bw=Math.max(38, txt.length*6.35+9);
-    const pl=infoPlacement(v,e.R,bw);
-    e.box.setAttribute('x', pl.bx);
-    e.box.setAttribute('y', pl.by);
-    e.box.setAttribute('width', bw);
-    e.info.setAttribute('x', pl.tx);
-    e.info.setAttribute('y', pl.ty);
-
     const isErr = v.b===BTOP;
-    const isReset = Reset(v);
-    const R=e.R;
-    // Global tag toggle: hide the (rk, t, b) read-out and the ERROR / RESET badges.
-    const tags=app.showTags;
-    e.box.style.display  = tags ? '' : 'none';
-    e.info.style.display = tags ? '' : 'none';
-    // ERROR / RESET share the single slot centred above the node.
-    e.errTag.gg.style.display = (tags && isErr) ? '' : 'none';
-    e.resetTag.gg.style.display = (tags && !isErr && isReset) ? '' : 'none';
-    const shown = isErr ? e.errTag : e.resetTag;
-    if (tags && (isErr || isReset)) shown.gg.setAttribute('transform',`translate(${v.x-shown.w/2},${v.y-R-14})`);
+    if(isErr) cls+=' err';
+    e.shape.setAttribute('class',cls);
+
+    // The glyph inside is the rank; b = top takes the slot to show the alarm.
+    e.rk.textContent = isErr ? '\u22A4' : (v.rk===RBOT ? '\u22A5' : String(v.rk));
+    e.rk.classList.toggle('inv', isErr);
+    e.ring.style.display = isErr ? '' : 'none';
+
     // Yellow dot at the node's top-right corner = holds the token.
     e.tok.style.display = (v.t===T_TRUE) ? '' : 'none';
   }
   for(const {el,arrow,pA,pB,a,b} of G.edgeEls){
     const na=G.nodes[a], nb=G.nodes[b];
-    const R=G.radius;
+    const R=G.radius, u=R/20;
     let cls='edge', tree=null;
     if(app.showBfs && na.rk!==RBOT && nb.rk!==RBOT && na.rk!==nb.rk){
       // rank-adjacent: exactly one of the two could be the other's parent.
@@ -869,7 +1058,7 @@ function updateView(){
       const dx=p.x-c.x, dy=p.y-c.y, len=Math.hypot(dx,dy)||1;
       const ux=dx/len, uy=dy/len;
       arrow.setAttribute('transform',
-        `translate(${p.x-ux*(R+2.5)},${p.y-uy*(R+2.5)}) rotate(${Math.atan2(uy,ux)*180/Math.PI})`);
+        `translate(${p.x-ux*(R+2.5*u)},${p.y-uy*(R+2.5*u)}) rotate(${Math.atan2(uy,ux)*180/Math.PI}) scale(${u})`);
       arrow.style.display='';
     } else arrow.style.display='none';
 
@@ -877,8 +1066,8 @@ function updateView(){
     const place=(t,from,to,val)=>{
       const dx=to.x-from.x, dy=to.y-from.y, len=Math.hypot(dx,dy)||1;
       const ux=dx/len, uy=dy/len;
-      t.setAttribute('x', from.x+ux*(R+7)-uy*5.2);
-      t.setAttribute('y', from.y+uy*(R+7)+ux*5.2+3);
+      t.setAttribute('x', from.x+ux*(R+7*u)-uy*5.2*u);
+      t.setAttribute('y', from.y+uy*(R+7*u)+ux*5.2*u+3*u);
       t.style.display = (from.rk===RBOT) ? 'none' : '';
     };
     place(pA,na,nb); place(pB,nb,na);
@@ -892,11 +1081,12 @@ function updateView(){
 function colorFor(o){ return o==='accepted'?'#16a34a':o==='join'?'#2563eb':(o==='anomaly'||o==='error')?'#dc2626':'#94a3b8'; }
 async function animateMessages(msgs,dur){
   if(!msgs.length){ return; }
+  const u=app.G.radius/20;
   const items=msgs.map(m=>{
     const g=document.createElementNS(SVGNS,'g');
     const c=document.createElementNS(SVGNS,'circle');
-    c.setAttribute('r',5.5); c.setAttribute('fill',colorFor(m.outcome));
-    c.setAttribute('stroke','#fff'); c.setAttribute('stroke-width','1.2');
+    c.setAttribute('r',5.5*u); c.setAttribute('fill',colorFor(m.outcome));
+    c.setAttribute('stroke','#fff'); c.setAttribute('stroke-width',1.2*u);
     g.appendChild(c);
     let lab=null;
     if(app.showMsgContent){
@@ -916,7 +1106,7 @@ async function animateMessages(msgs,dur){
         const x=it.m.from.x+(it.m.to.x-it.m.from.x)*e;
         const y=it.m.from.y+(it.m.to.y-it.m.from.y)*e;
         it.c.setAttribute('cx',x); it.c.setAttribute('cy',y);
-        if(it.lab){ it.lab.setAttribute('x',x+8); it.lab.setAttribute('y',y-8); }
+        if(it.lab){ it.lab.setAttribute('x',x+8*u); it.lab.setAttribute('y',y-8*u); }
       }
       if(p<1) requestAnimationFrame(frame);
       else { items.forEach(it=>it.g.remove()); res(); }
@@ -936,12 +1126,21 @@ function changeColor(v,s){
 }
 async function animateNodeChanges(items,dur){
   if(!items.length) return;
-  const R=app.G.radius;
+  const R=app.G.radius, u=R/20;
   const els=items.map(it=>{
-    const c=document.createElementNS(SVGNS,'circle');
-    c.setAttribute('cx',it.v.x); c.setAttribute('cy',it.v.y);
+    // The ripple copies the node's own shape so the root pulses as a square.
+    let c;
+    if(it.v.isRoot){
+      c=document.createElementNS(SVGNS,'rect');
+      c.setAttribute('x',it.v.x-R*0.95); c.setAttribute('y',it.v.y-R*0.95);
+      c.setAttribute('width',2*R*0.95); c.setAttribute('height',2*R*0.95); c.setAttribute('rx',2*u);
+      c.dataset.cx=it.v.x; c.dataset.cy=it.v.y; c.dataset.h=R*0.95;
+    } else {
+      c=document.createElementNS(SVGNS,'circle');
+      c.setAttribute('cx',it.v.x); c.setAttribute('cy',it.v.y); c.setAttribute('r',R+3*u);
+    }
     c.setAttribute('fill','none'); c.setAttribute('stroke',it.col);
-    c.setAttribute('stroke-width',2.4); c.setAttribute('r',R+3);
+    c.setAttribute('stroke-width',2.4*u);
     c.setAttribute('opacity',0);
     app.msgLayer.appendChild(c);
     return c;
@@ -952,7 +1151,13 @@ async function animateNodeChanges(items,dur){
       const p=Math.min(1,(now-t0)/dur);
       const wave=4*p*(1-p);                   // 0 -> 1 -> 0
       els.forEach((c,i)=>{
-        c.setAttribute('r', R+3+wave*7);
+        if(c.tagName==='rect'){
+          const h=+c.dataset.h + wave*7*u, cx=+c.dataset.cx, cy=+c.dataset.cy;
+          c.setAttribute('x',cx-h); c.setAttribute('y',cy-h);
+          c.setAttribute('width',2*h); c.setAttribute('height',2*h);
+        } else {
+          c.setAttribute('r', R+3*u+wave*7*u);
+        }
         c.setAttribute('opacity', wave*0.95);
       });
       if(p<1) requestAnimationFrame(frame);
@@ -1165,6 +1370,7 @@ function updateExplain(nodeRules, rootInfo, messages){
    ===================================================================== */
 function resetState(){
   const G=app.G;
+  seedRng('init');
   for(const v of G.nodes){
     if(v.isRoot){ v.rk=0; v.t=T_TRUE; v.b=1; continue; }
     switch(app.initMode){
@@ -1176,7 +1382,7 @@ function resetState(){
   }
   G.done=false; G.doneStep=null;
   app.step=0;
-  if(computeDone(G)){ G.done=true; G.doneStep=0; }   // e.g. the "ideal ranks" configuration
+  if(computeDone(G)){ G.done=true; G.doneStep=0; }   // e.g. the "BFS" configuration
   document.getElementById('stepLabel').textContent='Step 0';
   document.getElementById('log').innerHTML='';
   app.hist=[];
@@ -1229,6 +1435,8 @@ async function loop(){
 
 function newGraph(){
   app.hist=[];
+  seedRng('graph');          // same seed + same options -> same graph
+  fitCanvas();               // lay out for the canvas as it is right now
   app.G=buildGraph();
   drawGraph();
   renderStats();
@@ -1252,6 +1460,28 @@ window.addEventListener('DOMContentLoaded',()=>{
   app.svg=document.getElementById('graph');
   drawLegend();
 
+  // Keep the drawing glued to the canvas box: window resizes and the right
+  // panel sliding in/out both change the size, so re-layout once it settles.
+  let fitTimer=null;
+  const scheduleFit=()=>{ clearTimeout(fitTimer); fitTimer=setTimeout(relayout,80); };
+  if(window.ResizeObserver){
+    new ResizeObserver(scheduleFit).observe(document.getElementById('stagewrap'));
+  } else {
+    window.addEventListener('resize',scheduleFit);
+  }
+  window.addEventListener('resize',scheduleFit);
+
+  // Random seed. "change" fires on Enter and on blur, so a seed is applied only
+  // once the number is fully typed; an empty field falls back to Math.random,
+  // which is the default on every load.
+  const seedInp=document.getElementById('seedInput');
+  app.seed=seedInp.value.trim();
+  seedInp.addEventListener('change',()=>{
+    app.seed=seedInp.value.trim();
+    seedInp.value=app.seed;
+    newGraph();
+  });
+
   const nR=document.getElementById('nRange'), nV=document.getElementById('nVal');
   const spR=document.getElementById('spRange'), spV=document.getElementById('spVal');
   const dR=document.getElementById('densRange'), dV=document.getElementById('densVal');
@@ -1272,7 +1502,6 @@ window.addEventListener('DOMContentLoaded',()=>{
   document.getElementById('cOffers').addEventListener('change',e=>{ app.showOffers=e.target.checked; });
   document.getElementById('cMsg').addEventListener('change',e=>{ app.showMsgContent=e.target.checked; });
   document.getElementById('cBfs').addEventListener('change',e=>{ app.showBfs=e.target.checked; updateView(); });
-  document.getElementById('cTags').addEventListener('change',e=>{ app.showTags=e.target.checked; updateView(); });
 
   const btnPlay=document.getElementById('btnPlay');
   btnPlay.addEventListener('click',()=>{
@@ -1287,7 +1516,60 @@ window.addEventListener('DOMContentLoaded',()=>{
   });
   document.getElementById('btnPrev').addEventListener('click',()=>prevStep());
 
+  // DEMO: three stage presets. Each one reproduces the exact setup used on
+  // stage, syncs every visible control, then hand-edits a few node triples so
+  // the panel never disagrees with the graph.
+  const PRESETS={
+    reset:  {seed:'666', N:24, topology:'grid', initMode:'reset', stepMs:2000, inject:[]},
+    inject: {seed:'666', N:24, topology:'grid', initMode:'ideal', stepMs:2000,
+             inject:[['v23',2]]},
+    cycle:  {seed:'666', N:24, topology:'grid', initMode:'ideal', stepMs:2000,
+             inject:[['v23',0],['v22',2],['v21',1],['v16',0],['v17',2],['v18',1]]}
+  };
+
+  function applyPreset(p){
+    seedInp.value=app.seed=p.seed;
+    app.N=p.N; nR.value=String(p.N); nV.textContent=String(p.N);
+    app.topology=p.topology;
+    topoBtns.forEach(x=>x.classList.toggle('sel', x.dataset.topo===p.topology));
+    app.initMode=p.initMode;
+    document.getElementById('initSel').value=p.initMode;
+    app.stepMs=p.stepMs; spR.value=String(p.stepMs); spV.textContent=spLabel(p.stepMs);
+    newGraph();
+    if(!p.inject.length) return;
+    const byName=new Map(app.G.nodes.map(v=>[v.name,v]));
+    for(const [name,rk] of p.inject){
+      const v=byName.get(name);
+      if(v) v.rk=rk;
+    }
+    refreshAfterEdit();
+  }
+
+  const demoMenu=document.getElementById('demoMenu');
+  const demoBtn=document.getElementById('btnDemo');
+  const setMenu=open=>{ demoMenu.classList.toggle('open',open); demoBtn.setAttribute('aria-expanded',String(open)); };
+  demoBtn.addEventListener('click',e=>{ e.stopPropagation(); setMenu(!demoMenu.classList.contains('open')); });
+  demoMenu.querySelectorAll('.demo-list button').forEach(b=>{
+    b.addEventListener('click',e=>{
+      e.stopPropagation();
+      setMenu(false);
+      applyPreset(PRESETS[b.dataset.preset]);
+    });
+  });
+  document.addEventListener('click',()=>setMenu(false));
+
+  // Collapse / expand the Local variables + log panel. The canvas grows into the
+  // freed width, so the whole row is animated with a single width transition.
+  const btnPanel=document.getElementById('btnPanel');
+  const setPanel=hidden=>{
+    document.body.classList.toggle('panel-hidden',hidden);
+    btnPanel.setAttribute('aria-pressed',String(hidden));
+    btnPanel.textContent='VARS '+(hidden?'\u25B8':'\u25BE');
+  };
+  btnPanel.addEventListener('click',()=>setPanel(!document.body.classList.contains('panel-hidden')));
+
   document.addEventListener('keydown',e=>{
+    if(e.code==='Escape'){ setMenu(false); return; }
     if(e.target.tagName==='SELECT'||e.target.tagName==='INPUT'||e.target.tagName==='BUTTON') return;
     if(e.code==='Space'){ e.preventDefault(); btnPlay.click(); }
     else if(e.code==='ArrowRight'){ e.preventDefault(); document.getElementById('btnStep').click(); }
