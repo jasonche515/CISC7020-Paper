@@ -33,17 +33,11 @@ There are two programs. tokbinR runs at the root, and tokbinV runs at all the ot
 ---
 
 ## Slide 5 — 視覺化 (Visualization)
-Here is a visualization of the algorithm. I built a JavaScript program for it, and the link under the screenshot opens it. It has three prepared cases, and I run them in this order.
-Case one, all reset. Every node starts at bottom, and the root's tokens sweep down until the ranks are the distance modulo three.
-Case two, injection. The tree is already correct, and I flip one bit of one node by hand. The error climbs to the root, every node resets, and the tokens rebuild the same tree.
-Case three, a rank ring. I hand-set ranks that close a loop, so the parent links inside the loop never reach the root. No local check fires, so only the tokens expose it.
-So the three cases show convergence from any state, recovery from a fault, and a cycle that local rules alone cannot catch.
+Here is a visualization of the algorithm. I built a JavaScript program.  
+First, I can set the number of nodes. I can pick a topology: chain, ring, grid, tree, random, or triangular. Then I choose the initial configuration: all reset, BFS, random ranks, or with errors. When I press Play, each step is a synchronous round. The panel shows the local variables, and the log message here shows which rule is used. Tokens spread out from the root. Each node updates its rank and so on.
+Case 1: Every node starts at reset, and the root's tokens come down until the network stabilizes. Case 2: I flip one bit of one node by hand. The error climbs to the root, so every node resets, and then the tokens rebuild the same tree. Case 3: I created a cycle here, so the parent links inside this cycle never reach the root. No local check can detect it. Only the tokens expose the cycle. So these cases show the process, how to recover from a fault, and how to kill a cycle.
 
-> 這裡是演算法 (algorithm) 的視覺化 (visualization)。我做了一個 JavaScript 程式 (program)，截圖 (screenshot) 下方的連結會開啟它。程式裡有三個預先準備的案例 (case)，我依序示範。
-> 案例一，全部重置 (all reset)。每個節點都從 bottom 開始，根的 token 往下擴散 (spread)，直到 rank 等於距離取模三 (distance modulo three)。
-> 案例二，注入錯誤 (injection)。樹本來就是正確的，我手動翻轉 (flip) 某個節點的一個位元 (bit)。錯誤一路往上爬到根，所有節點重置 (reset)，token 重建 (rebuild) 同一棵樹。
-> 案例三，rank 環 (rank ring)。我手動設定 rank，讓它們圍成一個環 (loop)，環內的父連結 (parent link) 永遠到不了根。沒有任何局部檢查 (local check) 會觸發，所以只有 token 能揭發 (expose) 它。
-> 所以這三個案例分別展示了：從任意狀態收斂 (convergence)、從錯誤中復原 (recovery)，以及單靠局部規則抓不到的環 (cycle)。
+> 這是演算法 (algorithm) 的視覺化 (visualization)。我用 JavaScript 寫了一支程式 (program)。首先，我可以設定節點數量 (number of nodes)。我可以挑選拓樸 (topology)：鏈 (chain)、環 (ring)、格子 (grid)、樹 (tree)、隨機 (random) 或三角 (triangular)。接著我選擇初始設定 (initial configuration)：全部重置 (all reset)、BFS、隨機 rank，或帶有錯誤 (with errors)。當我按下 Play，每一步就是一個同步回合 (synchronous round)。面板顯示本地變數 (local variables)，而這裡的日誌訊息 (log message) 會顯示用了哪一條規則 (rule)。token 從根往外擴散 (spread out)。每個節點更新自己的 rank，諸如此類 (and so on)。案例一 (Case 1)：每個節點從重置狀態開始，根的 token 一層一層往下，直到整個網路穩定 (stabilizes)。案例二 (Case 2)：我手動 (by hand) 翻轉某個節點的一個位元 (bit)。錯誤往上爬到根，於是每個節點重置，接著 token 重建 (rebuild) 同一棵樹。案例三 (Case 3)：我在這裡造了一個環 (cycle)，所以這個環裡面的父指標 (parent link) 永遠到不了根。沒有任何局部檢查 (local check) 能偵測到它。只有 token 才會揭露 (expose) 這個環。所以這些案例展示了整個過程、如何從錯誤中復原 (recover from a fault)，以及如何消滅 (kill) 一個環。
 
 ---
 
