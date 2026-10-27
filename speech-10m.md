@@ -1,6 +1,6 @@
-﻿This is a 12-minute talk with 13 slides. The title page and the last page take little time, so the 11 content slides use most of the 12 minutes. Every slide has the same text in English and in Chinese. Choose one language for practice.
+﻿This is a 12-minute talk with 12 slides. The title page and the last page take little time, so the 10 content slides use most of the 12 minutes. Every slide has the same text in English and in Chinese. Choose one language for practice.
 
-> 這是 12 分鐘的報告，共 13 頁。標題頁和最後一頁佔的時間很少，其餘 11 頁內容用掉 12 分鐘的大部分。每頁的英文和中文內容相同，練習時選一種語言即可。
+> 這是 12 分鐘的報告，共 12 頁。標題頁和最後一頁佔的時間很少，其餘 10 頁內容用掉 12 分鐘的大部分。每頁的英文和中文內容相同，練習時選一種語言即可。
 
 ---
 
@@ -32,31 +32,39 @@ There are two programs. tokbinR runs at the root, and tokbinV runs at all the ot
 
 ---
 
-## Slide 5 — 本地變數 (Local variables)
+## Slide 5 — 視覺化 (Visualization)
+Here is a visualization of the algorithm. I built a JavaScript program for it, and the link under the screenshot opens it. It has three prepared cases, and I run them in this order.
+Case one, all reset. Every node starts at bottom, and the root's tokens sweep down until the ranks are the distance modulo three.
+Case two, injection. The tree is already correct, and I flip one bit of one node by hand. The error climbs to the root, every node resets, and the tokens rebuild the same tree.
+Case three, a rank ring. I hand-set ranks that close a loop, so the parent links inside the loop never reach the root. No local check fires, so only the tokens expose it.
+So the three cases show convergence from any state, recovery from a fault, and a cycle that local rules alone cannot catch.
+
+> 這裡是演算法 (algorithm) 的視覺化 (visualization)。我做了一個 JavaScript 程式 (program)，截圖 (screenshot) 下方的連結會開啟它。程式裡有三個預先準備的案例 (case)，我依序示範。
+> 案例一，全部重置 (all reset)。每個節點都從 bottom 開始，根的 token 往下擴散 (spread)，直到 rank 等於距離取模三 (distance modulo three)。
+> 案例二，注入錯誤 (injection)。樹本來就是正確的，我手動翻轉 (flip) 某個節點的一個位元 (bit)。錯誤一路往上爬到根，所有節點重置 (reset)，token 重建 (rebuild) 同一棵樹。
+> 案例三，rank 環 (rank ring)。我手動設定 rank，讓它們圍成一個環 (loop)，環內的父連結 (parent link) 永遠到不了根。沒有任何局部檢查 (local check) 會觸發，所以只有 token 能揭發 (expose) 它。
+> 所以這三個案例分別展示了：從任意狀態收斂 (convergence)、從錯誤中復原 (recovery)，以及單靠局部規則抓不到的環 (cycle)。
+
+---
+
+## Slide 6 — 本地變數 (Local variables)
 Each node stores three variables. First: k, the rank. It can be 0, 1, 2, or the bottom symbol for reset. The rank is the distance modulo three. Second: t. It can be FALSE, TRUE, or WAIT. Third: b. It can be 0, 1, or the top symbol for errors. So there are thirty-six states in total, using six bits, and this number does not grow with the network. Here is an example graph where the nodes have different local variables. The label above each node is its (k, t, b) triple.
 
 > 每個節點存三個變數 (variable)。第一：k，也就是 rank，可以是 0、1、2，或 bottom 符號代表重置 (reset)。rank 就是距離取模三。第二：t，可以是 FALSE、TRUE 或 WAIT（接受、持有、等待）。第三：b，可以是 0、1，或 top 符號代表錯誤 (error)。所以有 36 個狀態 (state)、6 個位元，而這個數量不隨網路變大而成長 (grow)。這裡是一個範例圖 (example graph)，圖中節點有不同的本地變數 (local variable)。每個節點上方的標籤 (label) 就是它的 (k, t, b) 三元組 (triple)。
 
 ---
 
-## Slide 6 — 親屬結構 (Kinship structure)
+## Slide 7 — 親屬結構 (Kinship structure)
 A node reads its family from the rank, modulo three. Rank minus one is a parent. Rank plus one is a child. The same rank is a sibling. Nothing is stored, so this costs no memory. A reset node has no family. It just ignores every token. Nodes are anonymous, so the parent is the neighbour of rank k minus one that has the smallest port number.
 
 > 節點從 rank 取模三讀出家庭 (family)。rank 減一是父 (parent)。rank 加一是子 (child)。相同 rank 是兄弟 (sibling)。不儲存任何東西，所以不佔記憶體 (memory)。重置 (reset) 的節點沒有家庭，它忽略所有 token。節點匿名 (anonymous)，所以父節點是 rank k 減一的鄰居中，埠號 (port number) 最小的那一個。
 
 ---
 
-## Slide 7 — 根演算法 (Root algorithm TokBinR)
+## Slide 8 — 根演算法 (Root algorithm TokBinR)
 There are two states in the state machine graph. In the quiet state, every neighbour has rank one, with the same t and b. In the error state, the root raises the error bit when the neighbourhood is not synchronized. When every neighbour carries the error bit, the root goes back to the quiet state and restarts.
 
 > 狀態機圖 (state machine graph) 裡有兩個狀態 (state)。在安靜 (quiet) 狀態，每個鄰居都是 rank 一，t 和 b 也相同。在錯誤 (error) 狀態，當鄰域不同步 (synchronized) 時，根舉起 (raise) 錯誤位元。當每個鄰居都帶著錯誤位元時，根回到安靜狀態並重新開始 (restart)。
-
----
-
-## Slide 8 — 讀取 token (Reading a token)
-A token is a neighbour with t = TRUE and b = 1. If it comes from all my parents, I accept it. If it comes from a node that is not a parent, I suspect an error. If it comes from the lowest rank around me, I take that rank. My new rank is the sender's rank plus one, modulo three. So a node is always one level below its parent, and it never stores the parent.
-
-> token 就是 t = TRUE 且 b = 1 的鄰居 (neighbour)。如果來自我全部的父節點 (parent)，我就接受 (accept)。如果來自不是父節點的節點，我就懷疑有錯誤 (error)。如果來自附近最低的 rank，我就採用那個 rank。我的新 rank 是來源的 rank 加一，取模三。所以節點永遠在父節點的下一層 (one level below)，而且從不儲存父節點。
 
 ---
 
@@ -74,33 +82,14 @@ There are three kinds of error. First: internal error, the rank and the parent d
 
 ---
 
-## Slide 11 — JavaScript 模擬 (JavaScript simulation)
-Now the demo. I built a JavaScript program to visualize the algorithm, and the link under the screenshot opens it.
-First I choose the network. I set the number of nodes, and I pick a topology: chain, ring, grid, tree, random or full.
-Then I choose the initial configuration: all reset, ideal ranks, random ranks, or random error.
-Then I press Play, and one step is one synchronous round. The panel on the right shows the state at the current step, and the log tells which rule fired.
-In the first rounds the tokens spread out from the root. Each node takes the rank of its parent plus one, and when the ranks stop changing, the tree is correct.
-Then I show an error. I inject it by hand: I click one cell in the table, and I change one bit of one node. The error nodes spread all the way to the root, every node resets, and the tokens rebuild the tree. The result is the same tree as before.
-So this shows that the algorithm is self-stabilizing.
-
-> 現在是示範 (demo)。我做了一個 JavaScript 程式 (program) 來視覺化 (visualize) 這個演算法，截圖 (screenshot) 下方的連結會開啟它。
-> 首先我選擇網路。我設定節點數，並選擇拓撲 (topology)：鏈 (chain)、環 (ring)、格 (grid)、樹 (tree)、隨機 (random) 或全連接 (full)。
-> 接著我選擇初始設定 (initial configuration)：全部重置 (all reset)、理想 rank (ideal ranks)、隨機 rank (random ranks) 或隨機錯誤 (random error)。
-> 然後我按下播放 (Play)，一步就是一個同步回合 (synchronous round)。右邊的面板 (panel) 顯示目前這一步的狀態，log 說明哪條規則被觸發 (fire)。
-> 前幾回合 token 從根擴散 (spread) 出去。每個節點取父節點的 rank 加一；當 rank 不再改變，樹就是正確的。
-> 接著我示範錯誤。我手動注入 (inject)：點表格裡的一格，改掉一個節點的一個位元 (bit)。錯誤節點一路擴散到根，所有節點重置 (reset)，token 重建 (rebuild) 整棵樹。結果和之前是同一棵樹。
-> 所以這展示了它確實是自穩定 (self-stabilization) 的。
-
----
-
-## Slide 12 — 結論 (Conclusion)
+## Slide 11 — 結論 (Conclusion)
 To conclude. This is the first constant-space, deterministic, self-stabilizing BFS construction for semi-uniform synchronous networks. Six bits per node, without global parameters. The key idea is a token stream with a bounded lifespan. It breaks cycles and rebuilds the levels. We see two directions for future work. First, asynchronous schedulers. In our model, all nodes move in the same round. If they move at different times, the argument fails. Second, the time bound. We stabilize in two to the power epsilon rounds. We would like a polynomial time bound, so the tree can be built faster.
 
 > 總結 (conclude)。這是第一個適用於半均勻 (semi-uniform) 同步網路的常數空間、確定性 (deterministic)、自穩定 (self-stabilizing) BFS 建構 (construction)。每個節點六個位元 (six bits)，不需要全域參數 (global parameter)。關鍵想法 (key idea) 是壽命有界 (bounded lifespan) 的 token 流 (token stream)。它打破環 (cycle) 並重建層級 (level)。未來工作 (future work) 有兩個方向。第一，非同步排程器 (asynchronous scheduler)。在我們的模型裡，所有節點在同一個回合 (round) 移動；如果移動的時間不同，就行不通 (the argument fails)。第二，時間界 (time bound)。我們在 2 的 ε 次方個回合內穩定 (stabilize)。我們希望有多項式界 (polynomial bound)，這樣樹就能建得更快。
 
 ---
 
-## Slide 13 — 謝謝 (Thank you)
+## Slide 12 — 謝謝 (Thank you)
 That is the end of my presentation. Thank you.
 
 > 我的報告到此結束 (that is the end of my presentation)。謝謝 (thank you)。

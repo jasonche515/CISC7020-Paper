@@ -425,7 +425,21 @@
 \end{frame}
 
 % ==========================================================================
-% 5 -- LOCAL VARIABLES AND STATE SPACE
+% 5 -- VISUALIZATION
+% ==========================================================================
+\begin{frame}{Visualization}
+\centering
+\vspace*{-2mm}
+\includegraphics[height=0.70\textheight,width=\textwidth,keepaspectratio]{tokbin-sim.png}
+
+\vspace{1.5mm}
+{\bodyfont
+ \href{https://jasonisgood.online/um/tokbin.html}%
+      {\color{blue}\underline{Live demo}}}
+\end{frame}
+
+% ==========================================================================
+% 6 -- LOCAL VARIABLES AND STATE SPACE
 % ==========================================================================
 \begin{frame}{Local variables}
 \begin{columns}[T]
@@ -478,7 +492,7 @@
 \end{frame}
 
 % ==========================================================================
-% 6 -- KINSHIP AND RESET
+% 7 -- KINSHIP AND RESET
 % ==========================================================================
 \begin{frame}{Kinship structure}
 % three text blocks, left to right: family / reset / parent choice.
@@ -584,7 +598,7 @@
 \end{frame}
 
 % ==========================================================================
-% 7 -- ROOT ALGORITHM
+% 8 -- ROOT ALGORITHM
 % ==========================================================================
 \begin{frame}{Root algorithm \texorpdfstring{$\mathtt{TokBinR}$}{TokBinR}}
 \begin{columns}[T]
@@ -617,46 +631,6 @@
 \end{tikzpicture}
 \par\vspace{2mm}
 {\captionfont Algorithm $\mathtt{TokBinR}$}
-\end{column}
-\end{columns}
-\end{frame}
-
-% ==========================================================================
-% 8 -- READING A TOKEN
-% ==========================================================================
-\begin{frame}{Reading a token}
-\begin{columns}[T]
-\begin{column}{0.52\textwidth}
-\bodyfont
-\begin{itemize}\setlength\itemsep{4pt}
-\item A \textbf{token} is a neighbour with $t=\mathrm{TRUE}$ and $b=\bo$
-  \begin{itemize}\setlength\itemsep{1pt}
-  \item from \textbf{all my parents} $\rightarrow$ accept it
-  \item from a \textbf{non-parent} $\rightarrow$ suspect an error
-  \item from the \textbf{lowest rank} only $\rightarrow$ take that rank
-  \end{itemize}
-\item \textbf{New rank} = lowest sender rank $+1$, modulo 3
-\item $v$ ends up exactly one level below its parent
-\end{itemize}
-\end{column}
-\begin{column}{0.46\textwidth}
-\centering
-\begin{tikzpicture}[scale=0.92,transform shape]
-  \node[gnode,c0] (p1) at (-1.10, 1.05) {$0$};
-  \node[gnode,c0] (p2) at ( 1.10, 1.05) {$0$};
-  \node[gnode,c1] (v)  at ( 0.00, 0.00) {$1$};
-  \node[clbl,right=0.8mm of v] {$v$};
-  \node[gnode,c2] (c1) at (-1.10,-1.05) {$2$};
-  \node[clbl,below=0.3mm of p1] {parent};
-  \node[clbl,below=0.3mm of p2] {parent};
-  \node[clbl,below=0.3mm of c1] {child};
-  \draw[garr] (p1)--(v);
-  \draw[garr] (p2)--(v);
-  \draw[gedge,dotted,draw=red!70!black] (c1)--(v);
-\end{tikzpicture}
-\par\vspace{1mm}
-{\captionfont
-green: token taken \quad red: refused}
 \end{column}
 \end{columns}
 \end{frame}
@@ -761,21 +735,7 @@ green: token taken \quad red: refused}
 \end{frame}
 
 % ==========================================================================
-% 11 -- SIMULATION
-% ==========================================================================
-\begin{frame}{JavaScript simulation}
-\centering
-\vspace*{-2mm}
-\includegraphics[height=0.70\textheight,width=\textwidth,keepaspectratio]{tokbin-sim.png}
-
-\vspace{1.5mm}
-{\bodyfont
- \href{https://jasonisgood.online/um/tokbin.html}%
-      {\color{blue}\underline{Live demo}}}
-\end{frame}
-
-% ==========================================================================
-% 12 -- CONCLUSION
+% 11 -- CONCLUSION
 % ==========================================================================
 \begin{frame}{Conclusion}
 \bodyfont
@@ -797,7 +757,7 @@ green: token taken \quad red: refused}
 \end{frame}
 
 % ==========================================================================
-% 13 -- THANK YOU
+% 12 -- THANK YOU
 % ==========================================================================
 \begin{frame}[plain]
 \vfill
